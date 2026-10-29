@@ -8,7 +8,7 @@ Chaque outil montre ses formules, ses hypothèses et ses sources : pas de boîte
 | Outil | État | Ce qu'il fait |
 |---|---|---|
 | [Chiffrage des préconisations](outils/chiffrage/) | V1 | Coût des travaux à partir de ratios personnels, ajustés au bâtiment et actualisés avec l'indice BT01 |
-| Ponts thermiques ψ | à venir | Catalogue de liaisons selon la position de l'isolant, avec schémas |
+| [Ponts thermiques ψ](outils/ponts-thermiques/) | V1 | Catalogue de liaisons selon la position de l'isolant (ITI, ITE, ITR), schémas, part des ponts thermiques dans les déperditions |
 | Confort d'été et inertie | à venir | Inertie, déphasage, protections solaires, brassage d'air |
 
 ## Principes

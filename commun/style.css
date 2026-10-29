@@ -21,6 +21,14 @@
   --alerte: #a36200;
   --alerte-doux: #fcefd6;
   --danger: #b3261e;
+  /* Schémas de parois (coupes) */
+  --sch-beton: #bdb8ae;
+  --sch-isolant: #f7e19a;
+  --sch-isolant-trait: #d2a52c;
+  --sch-maconnerie: #ecd2b4;
+  --sch-maconnerie-point: #b98a5e;
+  --sch-sol: #d9c6a8;
+  --sch-flux: #d0451b;
   --rayon: 10px;
   --ombre: 0 1px 2px rgba(30, 35, 45, .06), 0 4px 16px rgba(30, 35, 45, .05);
   --police: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -48,6 +56,13 @@
     --alerte: #e3a945;
     --alerte-doux: #362a12;
     --danger: #f2827a;
+    --sch-beton: #5d616b;
+    --sch-isolant: #5e5020;
+    --sch-isolant-trait: #c9a646;
+    --sch-maconnerie: #5f4632;
+    --sch-maconnerie-point: #b58a63;
+    --sch-sol: #4a3f31;
+    --sch-flux: #ff7a4d;
     --ombre: 0 1px 2px rgba(0, 0, 0, .3);
     color-scheme: dark;
   }
@@ -347,6 +362,32 @@ tr.detail td { background: var(--surface-2); font-size: .86rem; color: var(--enc
 .chaine .bloc b { display: block; font-size: .9rem; }
 .chaine .op { color: var(--encre-3); font-weight: 700; }
 .chaine .bloc.res { border-color: var(--accent); background: var(--accent-doux); }
+
+/* ---------- Schémas de parois (SVG) ---------- */
+.schema-svg { display: block; width: 100%; height: auto; max-width: 460px; border-radius: 8px; border: 1px solid var(--bord); }
+.schema-svg .sch-zone-chaude { fill: var(--accent-doux); }
+.schema-svg .sch-zone-froide { fill: var(--froid-doux); }
+.schema-svg .sch-beton { fill: var(--sch-beton); }
+.schema-svg .sch-isolant-fond { fill: var(--sch-isolant); }
+.schema-svg .sch-isolant-trait { stroke: var(--sch-isolant-trait); stroke-width: 1.4; }
+.schema-svg .sch-maconnerie-fond { fill: var(--sch-maconnerie); }
+.schema-svg .sch-maconnerie-point { fill: var(--sch-maconnerie-point); }
+.schema-svg .sch-plaque { fill: var(--surface); stroke: var(--encre-3); stroke-width: .6; }
+.schema-svg .sch-sol { fill: var(--sch-sol); }
+.schema-svg .sch-etanche { fill: var(--encre); }
+.schema-svg .sch-menuiserie { fill: var(--encre-2); }
+.schema-svg .sch-vitrage { fill: var(--froid); opacity: .55; }
+.schema-svg .sch-acier { stroke: var(--encre); stroke-width: 1.6; }
+.schema-svg .sch-halo-centre { stop-color: var(--sch-flux); stop-opacity: .55; }
+.schema-svg .sch-halo-bord { stop-color: var(--sch-flux); stop-opacity: 0; }
+.schema-svg .sch-flux { fill: none; stroke: var(--sch-flux); stroke-linecap: round; }
+.schema-svg .sch-fleche { fill: var(--sch-flux); }
+.schema-svg .sch-flux-courant { stroke: var(--encre-3); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.schema-svg .sch-fleche-courant { fill: var(--encre-3); }
+.schema-svg .sch-texte { fill: var(--encre-2); font-size: 11px; font-family: var(--police); font-weight: 600; }
+.legende { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8rem; color: var(--encre-2); margin-top: 8px; }
+.legende span { display: inline-flex; align-items: center; gap: 6px; }
+.legende i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; border: 1px solid var(--bord-fort); }
 
 /* ---------- Accueil : cartes des outils ---------- */
 .grille-outils { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 18px 0 28px; }
