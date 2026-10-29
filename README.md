@@ -22,8 +22,9 @@ Chaque outil montre ses formules, ses hypothèses et ses sources : pas de boîte
 
 ```
 index.html                  accueil
-commun/                     style et fonctions partagés
+commun/                     style et fonctions partagés (sauvegarde, exports, onglets…)
 donnees/                    données publiques (exemples, indice BT01)
+tests/                      tests des calculs et du site
 outils/<outil>/
     index.html              page de l'outil
     calcul.js               toute la logique de calcul, commentée
@@ -32,6 +33,21 @@ outils/<outil>/
 
 HTML, CSS et JavaScript simples, sans framework ni étape de compilation.
 Pour l'utiliser en local : ouvrir `index.html` dans un navigateur.
+
+## Sauvegarder ses données
+
+Page d'accueil › **Mes données** › « Télécharger une sauvegarde complète » : un seul fichier JSON avec
+tous les ratios, valeurs de ψ et calculs enregistrés. « Restaurer une sauvegarde » les remet sur un autre
+appareil ou un autre navigateur (chacun a son propre stockage).
+
+## Tests
+
+```
+node --test                 # syntaxe, exemples des onglets Méthode, données publiques
+node tests/navigateur.js    # vérification dans Chromium (nécessite Playwright)
+```
+
+Les tests `node --test` tournent aussi sur GitHub à chaque PR (onglet *Actions*).
 
 ## Mettre à jour l'indice BT01
 

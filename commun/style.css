@@ -362,6 +362,15 @@ tr.detail td { background: var(--surface-2); font-size: .86rem; color: var(--enc
 .chaine .bloc b { display: block; font-size: .9rem; }
 .chaine .op { color: var(--encre-3); font-weight: 700; }
 .chaine .bloc.res { border-color: var(--accent); background: var(--accent-doux); }
+/* Sections repliables (créées par BAO.sectionsRepliables) */
+.section-methode { border-top: 1px solid var(--bord); }
+.section-methode:first-of-type { border-top: 0; }
+.section-methode > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 8px; }
+.section-methode > summary::-webkit-details-marker { display: none; }
+.section-methode > summary::before { content: "▸"; color: var(--accent); font-weight: 700; width: 1em; flex: none; }
+.section-methode[open] > summary::before { content: "▾"; }
+.methode .section-methode > summary h2 { margin: .7em 0; }
+.section-methode[open] { padding-bottom: 10px; }
 
 /* ---------- Schémas de parois (SVG) ---------- */
 .schema-svg { display: block; width: 100%; height: auto; max-width: 460px; border-radius: 8px; border: 1px solid var(--bord); }
@@ -450,4 +459,5 @@ a.outil:hover { border-color: var(--accent); transform: translateY(-2px); }
   .carte { box-shadow: none; border: none; padding: 0; }
   .grille-2 { display: block; }
   .panneau[hidden] { display: none !important; }
+  .section-methode > summary::before { content: none; }
 }

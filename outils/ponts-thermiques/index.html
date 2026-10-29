@@ -20,8 +20,9 @@
     .badge.niv-moyen { background: var(--froid-doux); color: var(--froid); }
     .badge.niv-fort, .badge.niv-tres-fort { background: var(--accent-doux); color: var(--accent); }
     .barres { margin: 8px 0 0; display: grid; gap: 5px; }
-    .barre { display: grid; grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) 3.4em; gap: 8px; align-items: center; font-size: .82rem; }
-    .barre .nom { color: var(--encre-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Barres de comparaison : le nom au-dessus, la jauge et la valeur en dessous */
+    .barre { display: grid; grid-template-columns: minmax(0, 1fr) 3.4em; gap: 2px 8px; align-items: center; font-size: .82rem; }
+    .barre .nom { grid-column: 1 / -1; color: var(--encre-2); }
     .barre .jauge { height: 9px; background: var(--surface-2); border: 1px solid var(--bord); border-radius: 99px; overflow: hidden; }
     .barre .jauge i { display: block; height: 100%; background: var(--encre-3); border-radius: 99px; }
     .barre.actif .nom { color: var(--encre); font-weight: 650; }
@@ -32,7 +33,6 @@
     .repartition .parois { background: var(--froid); }
     .repartition .ponts { background: var(--accent); }
     .table-lignes .cel-liaison { min-width: 230px; }
-    @media (max-width: 640px) { .barre { grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) 3.2em; } }
   </style>
 </head>
 <body>
@@ -87,6 +87,7 @@
                 <span><i style="background:var(--sch-flux); border-color:var(--sch-flux)"></i>fuite de chaleur</span>
               </div>
               <p class="aide" style="margin:6px 0 0">(H) Schéma de principe, pas une simulation. L'épaisseur des flèches rouges suit la valeur de ψ.</p>
+              <p class="alerte attention" id="note-schema" style="margin:8px 0 0" hidden>Variante ajoutée par toi : le schéma montre le cas <b>standard</b> de cette liaison, pas ton détail.</p>
             </div>
             <div id="fiche-valeur" aria-live="polite"></div>
           </div>
@@ -167,7 +168,7 @@
     <div class="carte methode">
       <h2>1. Un pont thermique, c'est quoi ?</h2>
       <p>Imagine ton bâtiment emballé dans une doudoune : l'isolant. Un <b>pont thermique</b>, c'est un endroit où la doudoune est <b>coupée</b> ou <b>plus fine</b> : une couture, une fermeture éclair. La chaleur, comme l'eau qui fuit, prend toujours <b>le chemin le plus facile</b> pour sortir. Là où l'isolant s'interrompt, elle file.</p>
-      <p>Le plus souvent, ce chemin facile est du <b>béton</b> (une dalle, un refend, un acrotère) qui traverse l'isolant. Le béton conduit la chaleur environ <b>50 fois mieux</b> qu'un isolant (λ ≈ 2 W/(m·K) contre ≈ 0,04).</p>
+      <p>Le plus souvent, ce chemin facile est du <b>béton</b> (une dalle, un refend, un acrotère) qui traverse l'isolant. Le béton armé conduit la chaleur <b>50 à 70 fois mieux</b> qu'un isolant : λ = 2,3 W/(m·K) pour le béton armé (valeur tabulée des règles Th-U, fascicule Matériaux, et de NF EN ISO 10456), contre 0,032 à 0,040 W/(m·K) pour une laine minérale ou un PSE courant (fiches produits, certificats ACERMI).</p>
       <div class="fiche" style="margin-top:6px">
         <div>
           <div data-schema="plancher-inter|ITI|standard|0.9"></div>
@@ -276,7 +277,7 @@ Menuiseries 0,15 × 80 = 12   →   H ponts = 19 W/K   →   part = 19 / 339 = 6
         <h2>Mon catalogue</h2>
         <span id="stats-biblio" class="aide"></span>
       </div>
-      <div class="alerte info">Tes valeurs restent <b>dans ce navigateur</b>, sur cet appareil. Elles ne partent jamais sur GitHub. Pour les sauvegarder ou les passer du PC au téléphone : <b>Exporter</b> puis <b>Importer</b> le fichier JSON.</div>
+      <div class="alerte info" id="note-stockage">Tes valeurs restent <b>dans ce navigateur</b>, sur cet appareil. Elles ne partent jamais sur GitHub.</div>
       <div class="barre-boutons">
         <button type="button" class="bouton principal" id="btn-exporter">Exporter (JSON)</button>
         <label class="bouton" for="fichier-import" style="cursor:pointer">Importer (JSON)</label>

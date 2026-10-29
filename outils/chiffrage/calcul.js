@@ -90,7 +90,9 @@
 
   function calculerLigne(ligne, biblio, contexte, tableBT01) {
     const ratio = (biblio.ratios || []).find(function (r) { return r.id === ligne.ratioId; });
-    const quantite = Number(ligne.quantite) || 0;
+    // Une quantité vide ou négative n'a pas de sens : elle compte pour 0 (signalé « sans quantité »).
+    const q = Number(ligne.quantite);
+    const quantite = q > 0 ? q : 0;
 
     if (!ratio) {
       return { ligne: ligne, erreur: "Poste introuvable dans la bibliothèque (supprimé ?)", quantite: quantite, totalBas: 0, totalHaut: 0 };

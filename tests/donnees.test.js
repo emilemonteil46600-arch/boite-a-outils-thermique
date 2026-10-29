@@ -1,0 +1,71 @@
+/* Tests des données publiques : chaque valeur a une source, une date, un statut,
+   et rien de confidentiel n'est publié.
+   Lancer : node --test (depuis la racine du dépôt) */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const { RACINE, charger } = require('./aide-tests.js');
+
+charger('donnees/bt01.js');
+charger('donnees/chiffrage-exemple.js');
+charger('donnees/ponts-thermiques-exemple.js');
+const BT01 = window.BT01.valeurs;
+const CH = window.CHIFFRAGE_EXEMPLE;
+const PT = window.PONTS_EXEMPLE;
+const STATUTS = ['exemple', 'valide'];
+
+function sansDoublon(liste) { return new Set(liste).size === liste.length; }
+
+test('BT01 : mois au format AAAA-MM et valeurs plausibles', function () {
+  Object.keys(BT01).forEach(function (m) {
+    assert.match(m, /^\d{4}-\d{2}$/, m);
+    assert.ok(BT01[m] > 50 && BT01[m] < 400, m + ' = ' + BT01[m]);
+  });
+});
+
+test('Chiffrage : chaque ratio a un identifiant unique, une source, une date connue du BT01, un statut', function () {
+  assert.ok(sansDoublon(CH.ratios.map(function (r) { return r.id; })), 'identifiants en double');
+  CH.ratios.forEach(function (r) {
+    assert.ok(r.source && r.source.trim(), r.id + ' : source manquante');
+    assert.ok(STATUTS.indexOf(r.statut) !== -1, r.id + ' : statut inconnu');
+    assert.ok(BT01[r.dateRef] > 0, r.id + ' : mois ' + r.dateRef + ' absent de la table BT01');
+    assert.ok(r.prixBas >= 0 && r.prixBas <= r.prixHaut, r.id + ' : prix bas > prix haut');
+  });
+});
+
+test('Chiffrage : complexité de 1 à 4 et coefficients positifs', function () {
+  assert.deepEqual(CH.complexite.map(function (c) { return c.niveau; }), [1, 2, 3, 4]);
+  CH.complexite.concat(CH.typesBatiment).forEach(function (c) { assert.ok(c.coef > 0); });
+});
+
+test('Ponts thermiques : chaque ψ a une liaison et un isolant connus, une source, un mois, un statut, une explication', function () {
+  const liaisons = PT.liaisons.map(function (l) { return l.id; });
+  const isolations = PT.isolations.map(function (i) { return i.id; });
+  assert.ok(sansDoublon(PT.valeurs.map(function (v) { return v.id; })), 'identifiants en double');
+  PT.valeurs.forEach(function (v) {
+    assert.ok(liaisons.indexOf(v.liaison) !== -1, v.id + ' : liaison inconnue');
+    assert.ok(isolations.indexOf(v.isolation) !== -1, v.id + ' : isolant inconnu');
+    assert.ok(v.psi >= 0 && v.psi < 2, v.id + ' : ψ hors de la plage plausible');
+    assert.ok(v.source && v.source.trim(), v.id + ' : source manquante');
+    assert.match(v.dateRef, /^\d{4}-\d{2}$/, v.id + ' : mois manquant');
+    assert.ok(STATUTS.indexOf(v.statut) !== -1, v.id + ' : statut inconnu');
+    assert.ok(PT.explications[v.id], v.id + ' : pas d\'explication « pourquoi »');
+  });
+});
+
+test('Ponts thermiques : chaque liaison a un cas standard pour ITI, ITE et ITR', function () {
+  PT.liaisons.forEach(function (l) {
+    PT.isolations.forEach(function (i) {
+      const ok = PT.valeurs.some(function (v) { return v.liaison === l.id && v.isolation === i.id && v.variante === 'standard'; });
+      assert.ok(ok, l.id + ' / ' + i.id + ' : pas de cas standard');
+    });
+  });
+});
+
+test('Confidentialité : aucun nom de l\'entreprise dans les données publiques', function () {
+  fs.readdirSync(path.join(RACINE, 'donnees')).forEach(function (f) {
+    const texte = fs.readFileSync(path.join(RACINE, 'donnees', f), 'utf8');
+    assert.ok(!/argetec/i.test(texte), f + ' contient « Argetec »');
+  });
+});

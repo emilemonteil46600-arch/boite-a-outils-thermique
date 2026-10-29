@@ -27,8 +27,20 @@
   let biblio = chargerBiblio();
   let bt01Perso = BAO.lire(CLES.bt01, {}) || {};
   let projet = normaliserProjet(BAO.lire(CLES.projet, null));
-  let projets = BAO.lire(CLES.projets, {}) || {};
   const detailsOuverts = new Set();
+  const mesChiffrages = BAO.calculsEnregistres({
+    cle: CLES.projets,
+    mot: 'chiffrage',
+    courant: function () { return projet; },
+    charger: function (p) {
+      projet = normaliserProjet(p);
+      detailsOuverts.clear();
+      sauverProjet();
+      renderTout();
+    },
+    vide: projetVide,
+    estVide: function () { return !projet.lignes.length; }
+  });
 
   function chargerBiblio() {
     const b = BAO.lire(CLES.biblio, null);
@@ -72,7 +84,6 @@
 
   function sauverProjet() { BAO.ecrire(CLES.projet, projet); }
   function sauverBiblio() { BAO.ecrire(CLES.biblio, biblio); }
-  function sauverProjets() { BAO.ecrire(CLES.projets, projets); }
   function sauverBT01() { BAO.ecrire(CLES.bt01, bt01Perso); }
 
   /* ==========================================================
@@ -84,11 +95,7 @@
     return nb(arr(bas)) + ' – ' + nb(arr(haut)) + ' €';
   }
 
-  function badgeStatut(statut) {
-    return statut === 'valide'
-      ? '<span class="badge valide">validé</span>'
-      : '<span class="badge exemple">exemple à valider</span>';
-  }
+  const badgeStatut = BAO.badgeStatut;
 
   function categories() {
     const liste = [];
@@ -304,47 +311,26 @@
      ========================================================== */
   function copierPourWord() {
     const res = calculer();
-    const bord = 'border:1px solid #9a9a9a;padding:4px 7px;';
-    const entete = bord + 'background:#e9e6df;font-weight:bold;';
-    const droite = 'text-align:right;white-space:nowrap;';
     const fmt = function (p) { return nb(arr(p.bas)) + ' – ' + nb(arr(p.haut)); };
-
-    let html = '<table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt">' +
-      '<thead><tr><th style="' + entete + 'text-align:left">Poste</th><th style="' + entete + droite + '">Quantité</th>' +
-      '<th style="' + entete + droite + '">Estimation (€ HT)</th></tr></thead><tbody>';
-    const texte = ['Poste\tQuantité\tEstimation (€ HT)'];
-
-    res.lignes.forEach(function (l) {
-      if (l.erreur) return;
-      const q = nb(l.quantite, 2).replace(/,00$/, '') + ' ' + l.ratio.unite;
-      html += '<tr><td style="' + bord + '">' + esc(l.ratio.poste) + '</td><td style="' + bord + droite + '">' + esc(q) + '</td>' +
-        '<td style="' + bord + droite + '">' + fmt({ bas: l.totalBas, haut: l.totalHaut }) + '</td></tr>';
-      texte.push(l.ratio.poste + '\t' + q + '\t' + fmt({ bas: l.totalBas, haut: l.totalHaut }));
+    const lignes = res.lignes.filter(function (l) { return !l.erreur; }).map(function (l) {
+      return [l.ratio.poste, nb(l.quantite, 2).replace(/,00$/, '') + ' ' + l.ratio.unite, fmt({ bas: l.totalBas, haut: l.totalHaut })];
     });
-
     const totaux = [
-      ['Total travaux', res.travaux, false],
-      ['Maîtrise d\'œuvre (' + nb(projet.frais.moe, 1).replace(/,0$/, '') + ' %)', res.moe, false],
-      ['Aléas (' + nb(projet.frais.aleas, 1).replace(/,0$/, '') + ' %)', res.aleas, false],
-      ['Total HT', res.totalHT, true]
+      ['Total travaux', fmt(res.travaux), false],
+      ['Maîtrise d\'œuvre (' + nb(projet.frais.moe, 1).replace(/,0$/, '') + ' %)', fmt(res.moe), false],
+      ['Aléas (' + nb(projet.frais.aleas, 1).replace(/,0$/, '') + ' %)', fmt(res.aleas), false],
+      ['Total HT', fmt(res.totalHT), true]
     ];
-    totaux.forEach(function (t) {
-      const style = bord + (t[2] ? 'font-weight:bold;background:#f3f1ec;' : '');
-      html += '<tr><td colspan="2" style="' + style + '">' + esc(t[0]) + '</td><td style="' + style + droite + '">' + fmt(t[1]) + '</td></tr>';
-      texte.push(t[0] + '\t\t' + fmt(t[1]));
-    });
-    html += '</tbody></table>';
-
-    BAO.copierTableau(html, texte.join('\n')).then(function (ok) {
-      BAO.notifier(ok ? 'Tableau copié : colle-le dans Word (Ctrl+V).' : 'Copie impossible dans ce navigateur.');
-    });
+    BAO.copierPourWord(BAO.tableauWord(
+      [{ titre: 'Poste' }, { titre: 'Quantité', droite: true }, { titre: 'Estimation (€ HT)', droite: true }],
+      lignes, totaux));
   }
 
   function exporterCSV() {
     const res = calculer();
-    const n2 = function (v) { return isFinite(v) ? v.toFixed(2).replace('.', ',') : ''; };
-    const n4 = function (v) { return isFinite(v) ? v.toFixed(4).replace('.', ',') : ''; };
-    const cel = function (t) { return '"' + String(t === undefined || t === null ? '' : t).replace(/"/g, '""') + '"'; };
+    const n2 = function (v) { return BAO.nombreCSV(v, 2); };
+    const n4 = function (v) { return BAO.nombreCSV(v, 4); };
+    const cel = BAO.celluleCSV;
     const lignes = [[
       'Catégorie', 'Poste', 'Quantité', 'Unité', 'Prix réf. bas', 'Prix réf. haut', 'Mois du prix',
       'Coef. BT01', 'Coef. bâtiment', 'PU bas actualisé', 'PU haut actualisé', 'Coût bas HT', 'Coût haut HT', 'Statut', 'Source'
@@ -365,58 +351,7 @@
       lignes.push([cel(t[0]), '', '', '', '', '', '', '', '', '', '', n2(t[1].bas), n2(t[1].haut), '', ''].join(';'));
     });
 
-    const nom = (projet.nom || 'chiffrage').replace(/[^\w\-àâäéèêëîïôöùûüç ]+/gi, '').trim().replace(/\s+/g, '-') || 'chiffrage';
-    BAO.telecharger(nom + '_' + BAO.dateFichier() + '.csv', '﻿' + lignes.join('\r\n'), 'text/csv;charset=utf-8');
-  }
-
-  /* ==========================================================
-     MES CHIFFRAGES (enregistrer / ouvrir)
-     ========================================================== */
-  function renderListeProjets() {
-    const noms = Object.keys(projets).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
-    $('#liste-projets').innerHTML = noms.length
-      ? noms.map(function (n) { return '<option value="' + esc(n) + '"' + (n === projet.nom ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('')
-      : '<option value="">Aucun chiffrage enregistré</option>';
-  }
-
-  function enregistrerProjet() {
-    const nom = (projet.nom || '').trim();
-    if (!nom) { BAO.notifier('Donne un nom au chiffrage avant de l\'enregistrer.'); $('#nom-projet').focus(); return; }
-    if (projets[nom] && !confirm('Un chiffrage « ' + nom + ' » existe déjà. Le remplacer ?')) return;
-    projets[nom] = BAO.cloner(projet);
-    sauverProjets();
-    renderListeProjets();
-    BAO.notifier('Chiffrage « ' + nom + ' » enregistré.');
-  }
-
-  function ouvrirProjet() {
-    const nom = $('#liste-projets').value;
-    if (!nom || !projets[nom]) return;
-    projet = normaliserProjet(BAO.cloner(projets[nom]));
-    detailsOuverts.clear();
-    sauverProjet();
-    renderTout();
-    BAO.notifier('Chiffrage « ' + nom + ' » ouvert.');
-  }
-
-  function nouveauProjet() {
-    if (projet.lignes.length && !confirm('Commencer un nouveau chiffrage ? (Le chiffrage en cours n\'est gardé que s\'il a été enregistré.)')) return;
-    projet = projetVide();
-    detailsOuverts.clear();
-    sauverProjet();
-    renderTout();
-    $('#nom-projet').focus();
-    $('#nom-projet').select();
-  }
-
-  function supprimerProjet() {
-    const nom = $('#liste-projets').value;
-    if (!nom || !projets[nom]) return;
-    if (!confirm('Supprimer définitivement le chiffrage enregistré « ' + nom + ' » ?')) return;
-    delete projets[nom];
-    sauverProjets();
-    renderListeProjets();
-    BAO.notifier('Chiffrage supprimé.');
+    BAO.telechargerCSV(BAO.nomFichier(projet.nom, 'chiffrage') + '_' + BAO.dateFichier() + '.csv', lignes);
   }
 
   /* ==========================================================
@@ -532,10 +467,7 @@
   /* ==========================================================
      ONGLET DONNÉES — coefficients
      ========================================================== */
-  function selectStatut(statut, attributs) {
-    return '<select ' + attributs + ' aria-label="Statut"><option value="exemple"' + (statut !== 'valide' ? ' selected' : '') + '>exemple</option>' +
-      '<option value="valide"' + (statut === 'valide' ? ' selected' : '') + '>validé</option></select>';
-  }
+  const selectStatut = BAO.selectStatut;
 
   function renderCoefficients() {
     $('#corps-types').innerHTML = biblio.typesBatiment.map(function (t, i) {
@@ -623,15 +555,21 @@
       exporte_le: new Date().toISOString(),
       biblio: biblio,
       bt01Perso: bt01Perso,
-      projets: projets,
+      projets: mesChiffrages.tous(),
       projetCourant: projet
     };
-    BAO.telecharger('bibliotheque-chiffrage_' + BAO.dateFichier() + '.json', JSON.stringify(contenu, null, 2), 'application/json');
+    BAO.telechargerJSON('bibliotheque-chiffrage_' + BAO.dateFichier() + '.json', contenu,
+      [CLES.biblio, CLES.bt01, CLES.projets, CLES.projet], contenu.exporte_le);
     BAO.notifier('Bibliothèque exportée. Range le fichier dans un endroit sûr (OneDrive…).');
   }
 
   function importerBibliotheque(fichier) {
     BAO.lireFichierJSON(fichier).then(function (donnees) {
+      // Une sauvegarde complète de la boîte à outils est acceptée aussi.
+      if (donnees && donnees.format === BAO.FORMAT_SAUVEGARDE) {
+        if (BAO.restaurerSauvegarde(donnees)) location.reload();
+        return;
+      }
       if (!donnees || donnees.format !== 'bao-chiffrage' || !donnees.biblio || !Array.isArray(donnees.biblio.ratios)) {
         throw new Error('Ce fichier n\'est pas un export de l\'outil de chiffrage.');
       }
@@ -639,9 +577,9 @@
       if (!confirm('Importer ' + n + ' ratios et remplacer ta bibliothèque actuelle sur cet appareil ?')) return;
       biblio = donnees.biblio;
       bt01Perso = donnees.bt01Perso || {};
-      projets = donnees.projets || {};
+      mesChiffrages.remplacerTous(donnees.projets || {});
       if (donnees.projetCourant) projet = normaliserProjet(donnees.projetCourant);
-      sauverBiblio(); sauverBT01(); sauverProjets(); sauverProjet();
+      sauverBiblio(); sauverBT01(); sauverProjet();
       renderTout();
       BAO.notifier('Import réussi : ' + n + ' ratios.');
     }).catch(function (e) {
@@ -664,7 +602,7 @@
   function renderTout() {
     renderContexte();
     renderLignes();
-    renderListeProjets();
+    mesChiffrages.rendre();
     renderRatios();
     renderCoefficients();
     renderBT01();
@@ -726,8 +664,8 @@
       const tr = e.target.closest('tr[data-ligne]');
       const ligne = projet.lignes.find(function (l) { return l.id === tr.dataset.ligne; });
       if (!ligne) return;
-      const n = BAO.lireNombre(e.target.value);
-      ligne.quantite = isFinite(n) ? n : '';
+      if (BAO.lireNombre(e.target.value) < 0) BAO.notifier('Une quantité ne peut pas être négative.');
+      ligne.quantite = BAO.lirePositif(e.target.value);
       sauverProjet();
       majCalculs();
     });
@@ -751,12 +689,7 @@
         sauverProjet();
         renderLignes();
       } else if (b.dataset.action === 'detail') {
-        if (detailsOuverts.has(id)) detailsOuverts.delete(id); else detailsOuverts.add(id);
-        const ouvert = detailsOuverts.has(id);
-        const d = document.querySelector('tr[data-detail="' + CSS.escape(id) + '"]');
-        if (d) d.hidden = !ouvert;
-        b.setAttribute('aria-expanded', ouvert);
-        b.textContent = (ouvert ? '▾' : '▸') + ' calcul';
+        BAO.basculerDetail(b, id, detailsOuverts);
       }
     });
 
@@ -768,12 +701,6 @@
       if (b.dataset.action === 'export-csv') exporterCSV();
       if (b.dataset.action === 'imprimer') window.print();
     });
-
-    // --- Mes chiffrages ---
-    $('#btn-enregistrer').addEventListener('click', enregistrerProjet);
-    $('#btn-ouvrir').addEventListener('click', ouvrirProjet);
-    $('#btn-nouveau').addEventListener('click', nouveauProjet);
-    $('#btn-supprimer-projet').addEventListener('click', supprimerProjet);
 
     // --- Données : ratios ---
     $('#filtre-categorie').addEventListener('change', renderRatios);
@@ -869,6 +796,8 @@
      DÉMARRAGE
      ========================================================== */
   BAO.initOnglets(CLES.onglet);
+  BAO.noteStockage($('#note-stockage'), '../../index.html');
+  BAO.sectionsRepliables('#onglet-methode .methode');
   brancherEvenements();
   renderTout();
 })();
