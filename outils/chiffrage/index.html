@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chiffrage des préconisations — Boîte à outils thermique</title>
+  <meta name="description" content="Estimation du coût des travaux de rénovation énergétique à partir de ratios personnels, actualisés avec l'indice BT01.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c4501b'/%3E%3Cpath d='M9 22h14M11 22V12l5-4 5 4v10' stroke='white' stroke-width='2.4' fill='none' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../../commun/style.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="entete-interieur">
+    <a class="logo" href="../../index.html" title="Retour à la boîte à outils">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 22h14M11 22V12l5-4 5 4v10" stroke="#fff" stroke-width="2.4" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span>Boîte à outils thermique</span>
+    </a>
+    <span class="fil">› <b>Chiffrage des préconisations</b></span>
+    <span class="version">V1 · oct. 2026</span>
+  </div>
+</header>
+
+<main class="page">
+  <h1>Chiffrage des préconisations</h1>
+  <p class="intro">Estimation du coût des travaux à partir de <b>tes ratios</b>, ajustés au bâtiment et actualisés avec l'indice BT01. Chaque étape du calcul est visible : clique sur « calcul » à côté d'un poste.</p>
+
+  <nav class="onglets" role="tablist" aria-label="Sections de l'outil">
+    <button data-onglet="calcul">Calcul</button>
+    <button data-onglet="methode">Méthode</button>
+    <button data-onglet="donnees">Données</button>
+  </nav>
+
+  <!-- ===================== ONGLET CALCUL ===================== -->
+  <section class="panneau" id="onglet-calcul" role="tabpanel">
+    <div class="grille-2">
+      <div>
+        <div class="carte">
+          <div class="carte-titre"><h2>Le bâtiment</h2></div>
+          <div class="champs">
+            <div class="champ">
+              <label for="nom-projet">Nom du chiffrage</label>
+              <input type="text" id="nom-projet" placeholder="ex. Bages — Scénario 1" autocomplete="off">
+            </div>
+            <div class="champ">
+              <label for="type-batiment">Type de bâtiment</label>
+              <select id="type-batiment"></select>
+            </div>
+          </div>
+
+          <div class="champ" style="margin-top:16px">
+            <label id="label-niveaux">Complexité du chantier</label>
+            <div class="niveaux" id="niveaux" role="group" aria-labelledby="label-niveaux"></div>
+            <div class="criteres" id="criteres"></div>
+          </div>
+
+          <div class="barre-boutons" style="margin-top:16px">
+            <label class="interrupteur"><input type="checkbox" id="site-occupe"> Travaux en site occupé</label>
+            <span class="aide" id="aide-site"></span>
+          </div>
+        </div>
+
+        <div class="carte">
+          <div class="carte-titre">
+            <h2>Les postes</h2>
+            <span class="aide">Quantités issues de ton relevé ou de ton métré</span>
+          </div>
+          <div class="defilement">
+            <table class="table-lignes">
+              <thead>
+                <tr>
+                  <th>Poste</th>
+                  <th>Quantité</th>
+                  <th>Unité</th>
+                  <th class="num">Prix unitaire<br>actualisé (€ HT)</th>
+                  <th class="num">Coût (€ HT)</th>
+                  <th class="num"><span class="sr">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="corps-lignes"></tbody>
+            </table>
+          </div>
+          <div class="barre-boutons pas-impression" style="margin-top:14px">
+            <select id="ajout-poste" aria-label="Poste à ajouter" style="flex:1 1 260px; max-width:420px"></select>
+            <button type="button" class="bouton principal" id="btn-ajouter">+ Ajouter le poste</button>
+          </div>
+        </div>
+
+        <div class="carte pas-impression">
+          <div class="carte-titre"><h2>Frais et affichage</h2></div>
+          <div class="champs">
+            <div class="champ">
+              <label for="frais-moe">Maîtrise d'œuvre (%)</label>
+              <input type="text" inputmode="decimal" id="frais-moe">
+            </div>
+            <div class="champ">
+              <label for="frais-aleas">Aléas (%)</label>
+              <input type="text" inputmode="decimal" id="frais-aleas">
+            </div>
+            <div class="champ">
+              <label for="frais-tva">TVA (%)</label>
+              <input type="text" inputmode="decimal" id="frais-tva">
+            </div>
+            <div class="champ">
+              <label for="arrondi">Arrondi des montants</label>
+              <select id="arrondi">
+                <option value="0">Aucun</option>
+                <option value="10">À 10 €</option>
+                <option value="100">À 100 €</option>
+                <option value="1000">À 1 000 €</option>
+              </select>
+            </div>
+          </div>
+          <p class="aide" style="margin:10px 0 0">TVA : 20 % en tertiaire ; en logement, 10 % ou 5,5 % selon la nature des travaux (à vérifier au cas par cas).</p>
+        </div>
+      </div>
+
+      <aside class="collant">
+        <div class="carte" id="resultats" aria-live="polite"></div>
+
+        <div class="carte pas-impression">
+          <h3>Mes chiffrages</h3>
+          <p class="aide">Le chiffrage en cours est gardé automatiquement. « Enregistrer » le range sous son nom pour le retrouver plus tard.</p>
+          <div class="champ" style="margin-bottom:10px">
+            <label for="liste-projets">Chiffrages enregistrés</label>
+            <select id="liste-projets"></select>
+          </div>
+          <div class="barre-boutons">
+            <button type="button" class="bouton" id="btn-enregistrer">Enregistrer</button>
+            <button type="button" class="bouton" id="btn-ouvrir">Ouvrir</button>
+            <button type="button" class="bouton" id="btn-nouveau">Nouveau</button>
+            <button type="button" class="bouton discret danger" id="btn-supprimer-projet">Supprimer</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET MÉTHODE ===================== -->
+  <section class="panneau" id="onglet-methode" role="tabpanel" hidden>
+    <div class="carte methode">
+      <h2>1. La formule</h2>
+      <p>Pour chaque poste, le coût est une chaîne de multiplications. Chaque maillon a une raison d'être et une valeur que <b>tu</b> fixes dans l'onglet Données.</p>
+      <div class="chaine" aria-label="Chaîne de calcul">
+        <div class="bloc"><b>Quantité</b>ton métré</div><span class="op">×</span>
+        <div class="bloc"><b>Prix de réf.</b>bas / haut</div><span class="op">×</span>
+        <div class="bloc"><b>BT01</b>actualisation</div><span class="op">×</span>
+        <div class="bloc"><b>Type</b>de bâtiment</div><span class="op">×</span>
+        <div class="bloc"><b>Complexité</b>1 à 4</div><span class="op">×</span>
+        <div class="bloc"><b>Site occupé</b>oui / non</div><span class="op">=</span>
+        <div class="bloc res"><b>Coût</b>€ HT</div>
+      </div>
+      <p>Ensuite, pour le projet :</p>
+      <div class="formule">Travaux HT = somme des postes
+Total HT   = Travaux × (1 + % maîtrise d'œuvre + % aléas)
+Total TTC  = Total HT × (1 + % TVA)</div>
+
+      <h2>2. Chaque terme, expliqué</h2>
+      <ul>
+        <li><b>Quantité</b> : ce que tu mesures (m² de mur, m² de baie, kW, kWc…). C'est la donnée la plus fiable : elle vient de ton relevé ou de ta STD.</li>
+        <li><b>Prix de référence</b> : prix unitaire fourniture + pose, en € HT, pour un bâtiment « de référence » (tertiaire courant, complexité 2, site libre). Toujours une <b>fourchette basse / haute</b>, toujours une <b>source</b> et une <b>date</b>.</li>
+        <li><b>Actualisation BT01</b> : un prix de janvier 2025 n'est plus valable aujourd'hui. On le multiplie par l'évolution de l'indice INSEE BT01 (bâtiment, tous corps d'état) entre le mois du prix et le dernier mois connu.</li>
+        <li><b>Type de bâtiment</b> : une maison coûte plus cher au m² (petites quantités), un grand volume moins cher (surfaces simples et continues).</li>
+        <li><b>Complexité 1 à 4</b> : accès, hauteur, géométrie, contraintes patrimoniales ou sanitaires. Utilise la grille des critères pour noter toujours de la même façon.</li>
+        <li><b>Site occupé</b> : bâtiment utilisé pendant le chantier → phasage, protections, horaires décalés. C'est un coefficient séparé de la complexité, pour ne pas le compter deux fois.</li>
+      </ul>
+
+      <h2>3. Exemple chiffré, refait à la main</h2>
+      <p>ITE sous enduit, 300 m² de mur, prix de référence 120 – 190 € HT/m² daté de janvier 2025. Bâtiment tertiaire, complexité 3, site occupé.</p>
+      <div class="formule">Actualisation BT01   = 139,4 (août 2026) / 132,0 (janv. 2025) = 1,056
+Coef. bâtiment       = 1,00 (tertiaire) × 1,15 (complexité 3) × 1,10 (site occupé) = 1,265
+Coef. total          = 1,056 × 1,265 = 1,336
+
+Prix unitaire        = 120 × 1,336 = 160 €/m²   →   190 × 1,336 = 254 €/m²
+Coût                 = 300 × 160 = 48 093 €     →   300 × 254 = 76 147 €
+Affiché (arrondi)    = 48 100 – 76 100 € HT</div>
+      <p class="aide">Tu peux retrouver exactement ces chiffres dans l'onglet Calcul avec les ratios d'exemple.</p>
+
+      <h2>4. Pourquoi une fourchette et un arrondi</h2>
+      <p>Au stade de l'audit, il n'y a ni plans d'exécution, ni consultation des entreprises : l'incertitude est de l'ordre de ±20 à 30 %. Annoncer « 48 093 € » donne une fausse impression de précision. La fourchette montre l'incertitude, l'arrondi évite les faux chiffres significatifs. Le calcul, lui, garde tous les chiffres : seul l'affichage est arrondi.</p>
+
+      <h2>5. Comment construire tes ratios</h2>
+      <ul>
+        <li><b>Sources, de la plus fiable à la moins fiable</b> : devis et offres reçus sur tes projets → DPGF de chantiers réels → chiffrages d'économistes → bases de prix (payantes) → ordres de grandeur publiés.</li>
+        <li><b>Un ratio = une source + une date.</b> Sans date, impossible d'actualiser ; sans source, impossible de défendre le chiffre devant un client.</li>
+        <li><b>Statut « validé »</b> uniquement quand tu peux expliquer d'où vient le chiffre. Tant qu'il reste des ratios en exemple, l'outil t'avertit.</li>
+        <li>Quand un chantier se termine, compare le coût réel à ton estimation : c'est comme ça que tes ratios deviennent meilleurs que ceux des autres.</li>
+      </ul>
+
+      <h2>6. Limites connues (H)</h2>
+      <ul>
+        <li><b>(H)</b> Les coefficients se multiplient : un chantier « très contraint + site occupé + maison » cumule ×1,35 × 1,10 × 1,10 ≈ ×1,63. C'est voulu, mais à surveiller sur les cas extrêmes.</li>
+        <li><b>(H)</b> Le même coefficient s'applique à tous les postes. En réalité, la hauteur pénalise plus une ITE qu'un remplacement de chaudière. Piste V2 : coefficients par catégorie.</li>
+        <li><b>(H)</b> Pas d'effet de quantité : 20 m² et 2 000 m² ont le même prix unitaire. Piste V2 : prix dégressifs par tranche.</li>
+        <li><b>(H)</b> Le BT01 est un indice moyen « tous corps d'état ». Il existe des indices par corps d'état (ex. BT40 chauffage central, BT41 ventilation, BT47 électricité) et un indice rénovation-entretien (BT50), à vérifier. Piste V2 : un indice par catégorie.</li>
+        <li><b>(H)</b> Pas de coefficient géographique (Paris ≠ Pyrénées-Orientales). Piste V2.</li>
+      </ul>
+
+      <h2>7. Où est le code</h2>
+      <ul>
+        <li><code>outils/chiffrage/calcul.js</code> : <b>tout le calcul</b>, commenté en français. Si tu veux vérifier une formule, c'est là.</li>
+        <li><code>outils/chiffrage/interface.js</code> : l'affichage et les boutons (aucun calcul).</li>
+        <li><code>donnees/chiffrage-exemple.js</code> : les ratios d'exemple (publics).</li>
+        <li><code>donnees/bt01.js</code> : les valeurs de l'indice BT01.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET DONNÉES ===================== -->
+  <section class="panneau" id="onglet-donnees" role="tabpanel" hidden>
+
+    <div class="carte">
+      <div class="carte-titre">
+        <h2>Ma bibliothèque</h2>
+        <span id="stats-biblio" class="aide"></span>
+      </div>
+      <div class="alerte info">Tes ratios restent <b>dans ce navigateur</b>, sur cet appareil. Ils ne partent jamais sur GitHub. Pour les sauvegarder ou les passer du PC au téléphone : <b>Exporter</b> puis <b>Importer</b> le fichier JSON.</div>
+      <div class="barre-boutons">
+        <button type="button" class="bouton principal" id="btn-exporter">Exporter (JSON)</button>
+        <label class="bouton" for="fichier-import" style="cursor:pointer">Importer (JSON)</label>
+        <input type="file" id="fichier-import" accept=".json,application/json" hidden>
+        <button type="button" class="bouton discret danger" id="btn-reinitialiser">Revenir aux exemples</button>
+      </div>
+    </div>
+
+    <div class="carte">
+      <div class="carte-titre">
+        <h2>Ratios de prix</h2>
+        <span class="aide">€ HT, fourniture + pose, bâtiment de référence (tertiaire, complexité 2, site libre)</span>
+      </div>
+      <div class="champs" style="margin-bottom:12px">
+        <div class="champ">
+          <label for="filtre-categorie">Catégorie</label>
+          <select id="filtre-categorie"></select>
+        </div>
+        <div class="champ">
+          <label for="filtre-texte">Rechercher</label>
+          <input type="text" id="filtre-texte" placeholder="ex. PAC, ITE…" autocomplete="off">
+        </div>
+      </div>
+      <datalist id="liste-categories"></datalist>
+      <div class="defilement">
+        <table class="table-edition">
+          <thead>
+            <tr>
+              <th>Catégorie</th>
+              <th>Poste</th>
+              <th>Unité</th>
+              <th class="num">Prix bas</th>
+              <th class="num">Prix haut</th>
+              <th>Mois du prix</th>
+              <th>Source</th>
+              <th>Statut</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="corps-ratios"></tbody>
+        </table>
+      </div>
+      <div class="barre-boutons" style="margin-top:12px">
+        <button type="button" class="bouton" id="btn-ajouter-ratio">+ Ajouter un ratio</button>
+      </div>
+    </div>
+
+    <div class="carte">
+      <div class="carte-titre"><h2>Coefficients</h2></div>
+
+      <h3>Type de bâtiment</h3>
+      <div class="defilement">
+        <table class="table-edition">
+          <thead><tr><th>Type</th><th class="num">Coef.</th><th>Justification</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="corps-types"></tbody>
+        </table>
+      </div>
+      <div class="barre-boutons" style="margin:10px 0 20px">
+        <button type="button" class="bouton" id="btn-ajouter-type">+ Ajouter un type</button>
+      </div>
+
+      <h3>Complexité du chantier</h3>
+      <div class="defilement">
+        <table class="table-edition">
+          <thead><tr><th>Niveau</th><th>Nom</th><th class="num">Coef.</th><th>Critères</th><th>Statut</th></tr></thead>
+          <tbody id="corps-complexite"></tbody>
+        </table>
+      </div>
+
+      <h3 style="margin-top:20px">Site occupé et frais par défaut</h3>
+      <div class="champs">
+        <div class="champ">
+          <label for="coef-site">Coef. site occupé</label>
+          <input type="text" inputmode="decimal" id="coef-site">
+        </div>
+        <div class="champ">
+          <label for="statut-site">Statut</label>
+          <select id="statut-site"><option value="exemple">exemple</option><option value="valide">validé</option></select>
+        </div>
+        <div class="champ">
+          <label for="defaut-moe">MOE par défaut (%)</label>
+          <input type="text" inputmode="decimal" id="defaut-moe">
+        </div>
+        <div class="champ">
+          <label for="defaut-aleas">Aléas par défaut (%)</label>
+          <input type="text" inputmode="decimal" id="defaut-aleas">
+        </div>
+        <div class="champ">
+          <label for="defaut-tva">TVA par défaut (%)</label>
+          <input type="text" inputmode="decimal" id="defaut-tva">
+        </div>
+      </div>
+      <p class="aide" style="margin:8px 0 0">Les frais par défaut s'appliquent aux nouveaux chiffrages. Pour le chiffrage en cours, modifie-les dans l'onglet Calcul.</p>
+    </div>
+
+    <div class="carte">
+      <div class="carte-titre">
+        <h2>Indice BT01</h2>
+        <span id="bt01-actuel" class="badge info"></span>
+      </div>
+      <p class="aide">Indice INSEE « bâtiment tous corps d'état », base 100 en 2010. Publié chaque mois au Journal officiel, environ 2 mois et demi après le mois concerné. Dernière valeur : <a href="https://www.anil.org/outils/indices-et-plafonds/indice-bt-01" target="_blank" rel="noopener">ANIL</a> ou <a href="https://www.insee.fr/fr/recherche?q=BT01" target="_blank" rel="noopener">INSEE</a>.</p>
+      <div class="barre-boutons" style="margin-bottom:12px">
+        <input type="month" id="bt01-mois" aria-label="Mois" style="width:auto">
+        <input type="text" inputmode="decimal" id="bt01-valeur" placeholder="ex. 139,8" aria-label="Valeur de l'indice" style="width:120px">
+        <button type="button" class="bouton" id="btn-ajouter-bt01">+ Ajouter ce mois</button>
+      </div>
+      <div class="defilement" style="max-height:320px; overflow-y:auto">
+        <table>
+          <thead><tr><th>Mois</th><th class="num">BT01</th><th>Origine</th><th></th></tr></thead>
+          <tbody id="corps-bt01"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="pied">
+  Outil personnel d'aide au chiffrage en phase audit. Les montants sont des estimations, pas des devis.
+</footer>
+
+<script src="../../commun/commun.js"></script>
+<script src="../../donnees/bt01.js"></script>
+<script src="../../donnees/chiffrage-exemple.js"></script>
+<script src="calcul.js"></script>
+<script src="interface.js"></script>
+</body>
+</html>
