@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ponts thermiques ψ — Boîte à outils thermique</title>
+  <meta name="description" content="Catalogue de ponts thermiques linéiques ψ selon la position de l'isolant (ITI, ITE, ITR), avec schémas et impact sur les déperditions.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c4501b'/%3E%3Cpath d='M9 22h14M11 22V12l5-4 5 4v10' stroke='white' stroke-width='2.4' fill='none' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../../commun/style.css">
+  <style>
+    /* Styles propres à cet outil */
+    .choix { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+    .choix.trois { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .choix .niveau .nom { font-size: .88rem; }
+    .fiche { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; margin-top: 16px; align-items: start; }
+    @media (max-width: 720px) { .fiche { grid-template-columns: minmax(0, 1fr); } }
+    .psi-gros { font-size: 2rem; font-weight: 750; color: var(--accent); font-variant-numeric: tabular-nums; line-height: 1.1; }
+    .psi-gros small { font-size: .9rem; font-weight: 600; color: var(--encre-2); }
+    .badge.niv-faible { background: var(--ok-doux); color: var(--ok); }
+    .badge.niv-moyen { background: var(--froid-doux); color: var(--froid); }
+    .badge.niv-fort, .badge.niv-tres-fort { background: var(--accent-doux); color: var(--accent); }
+    .barres { margin: 8px 0 0; display: grid; gap: 5px; }
+    .barre { display: grid; grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) 3.4em; gap: 8px; align-items: center; font-size: .82rem; }
+    .barre .nom { color: var(--encre-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .barre .jauge { height: 9px; background: var(--surface-2); border: 1px solid var(--bord); border-radius: 99px; overflow: hidden; }
+    .barre .jauge i { display: block; height: 100%; background: var(--encre-3); border-radius: 99px; }
+    .barre.actif .nom { color: var(--encre); font-weight: 650; }
+    .barre.actif .jauge i { background: var(--accent); }
+    .barre .v { text-align: right; font-variant-numeric: tabular-nums; }
+    .repartition { display: flex; height: 16px; border-radius: 99px; overflow: hidden; border: 1px solid var(--bord); margin: 10px 0 4px; }
+    .repartition i { display: block; height: 100%; }
+    .repartition .parois { background: var(--froid); }
+    .repartition .ponts { background: var(--accent); }
+    .table-lignes .cel-liaison { min-width: 230px; }
+    @media (max-width: 640px) { .barre { grid-template-columns: minmax(0, 7.5em) minmax(0, 1fr) 3.2em; } }
+  </style>
+</head>
+<body>
+
+<header class="entete">
+  <div class="entete-interieur">
+    <a class="logo" href="../../index.html" title="Retour à la boîte à outils">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 22h14M11 22V12l5-4 5 4v10" stroke="#fff" stroke-width="2.4" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span>Boîte à outils thermique</span>
+    </a>
+    <span class="fil">› <b>Ponts thermiques ψ</b></span>
+    <span class="version">V1 · oct. 2026</span>
+  </div>
+</header>
+
+<main class="page">
+  <h1>Ponts thermiques ψ</h1>
+  <p class="intro">Choisis une liaison et la position de l'isolant : l'outil donne le ψ, montre <b>par où la chaleur s'échappe</b> et explique pourquoi. Ajoute ensuite tes longueurs pour voir le poids des ponts thermiques dans les déperditions.</p>
+
+  <nav class="onglets" role="tablist" aria-label="Sections de l'outil">
+    <button data-onglet="calcul">Calcul</button>
+    <button data-onglet="methode">Méthode</button>
+    <button data-onglet="donnees">Données</button>
+  </nav>
+
+  <!-- ===================== ONGLET CALCUL ===================== -->
+  <section class="panneau" id="onglet-calcul" role="tabpanel">
+    <div class="grille-2">
+      <div>
+        <div class="carte">
+          <div class="carte-titre"><h2>1. Choisir une liaison</h2></div>
+          <div class="champ">
+            <label id="label-liaisons">Liaison</label>
+            <div class="choix" id="choix-liaison" role="group" aria-labelledby="label-liaisons"></div>
+          </div>
+          <div class="champ" style="margin-top:14px">
+            <label id="label-isolations">Position de l'isolant</label>
+            <div class="choix trois" id="choix-isolation" role="group" aria-labelledby="label-isolations"></div>
+          </div>
+          <div class="champ" style="margin-top:14px">
+            <label for="choix-variante">Détail constructif</label>
+            <select id="choix-variante"></select>
+          </div>
+
+          <div class="fiche">
+            <div>
+              <div id="schema"></div>
+              <div class="legende" aria-hidden="true">
+                <span><i style="background:var(--sch-beton)"></i>béton</span>
+                <span><i style="background:var(--sch-isolant)"></i>isolant</span>
+                <span><i style="background:var(--sch-maconnerie)"></i>mur isolant (ITR)</span>
+                <span><i style="background:var(--sch-flux); border-color:var(--sch-flux)"></i>fuite de chaleur</span>
+              </div>
+              <p class="aide" style="margin:6px 0 0">(H) Schéma de principe, pas une simulation. L'épaisseur des flèches rouges suit la valeur de ψ.</p>
+            </div>
+            <div id="fiche-valeur" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <div class="carte">
+          <div class="carte-titre">
+            <h2>2. Mes liaisons</h2>
+            <span class="aide">Longueurs issues de ton relevé ou de tes plans</span>
+          </div>
+          <div class="barre-boutons pas-impression" style="margin-bottom:12px">
+            <div class="champ" style="flex:1 1 140px; max-width:180px">
+              <label for="longueur-ajout">Longueur L (m)</label>
+              <input type="text" inputmode="decimal" id="longueur-ajout" placeholder="ex. 60">
+            </div>
+            <div class="champ" style="flex:2 1 180px">
+              <label for="repere-ajout">Repère (facultatif)</label>
+              <input type="text" id="repere-ajout" placeholder="ex. Façade nord, R+1" autocomplete="off">
+            </div>
+            <button type="button" class="bouton principal" id="btn-ajouter" style="align-self:flex-end">+ Ajouter cette liaison</button>
+          </div>
+          <div class="defilement">
+            <table class="table-lignes">
+              <thead>
+                <tr>
+                  <th>Liaison</th>
+                  <th>Repère</th>
+                  <th>L (m)</th>
+                  <th class="num">ψ (W/m.K)</th>
+                  <th class="num">ψ × L (W/K)</th>
+                  <th class="num"><span class="sr">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody id="corps-lignes"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="carte">
+          <div class="carte-titre"><h2>3. Déperditions des parois</h2></div>
+          <div class="champs">
+            <div class="champ">
+              <label for="h-parois">Σ U × A des parois (W/K)</label>
+              <input type="text" inputmode="decimal" id="h-parois" placeholder="ex. 320">
+            </div>
+            <div class="champ">
+              <label for="nom-projet">Nom du calcul</label>
+              <input type="text" id="nom-projet" placeholder="ex. École — état initial" autocomplete="off">
+            </div>
+          </div>
+          <p class="aide" style="margin:10px 0 0">Déperditions par les parois <b>seules</b> (murs, toiture, plancher bas, vitrages), <b>sans</b> les ponts thermiques ni le renouvellement d'air. Tu peux reprendre la valeur de ton calcul Pléiades.</p>
+        </div>
+      </div>
+
+      <aside class="collant">
+        <div class="carte" id="resultats" aria-live="polite"></div>
+
+        <div class="carte pas-impression">
+          <h3>Mes calculs</h3>
+          <p class="aide">Le calcul en cours est gardé automatiquement. « Enregistrer » le range sous son nom pour le retrouver plus tard.</p>
+          <div class="champ" style="margin-bottom:10px">
+            <label for="liste-projets">Calculs enregistrés</label>
+            <select id="liste-projets"></select>
+          </div>
+          <div class="barre-boutons">
+            <button type="button" class="bouton" id="btn-enregistrer">Enregistrer</button>
+            <button type="button" class="bouton" id="btn-ouvrir">Ouvrir</button>
+            <button type="button" class="bouton" id="btn-nouveau">Nouveau</button>
+            <button type="button" class="bouton discret danger" id="btn-supprimer-projet">Supprimer</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET MÉTHODE ===================== -->
+  <section class="panneau" id="onglet-methode" role="tabpanel" hidden>
+    <div class="carte methode">
+      <h2>1. Un pont thermique, c'est quoi ?</h2>
+      <p>Imagine ton bâtiment emballé dans une doudoune : l'isolant. Un <b>pont thermique</b>, c'est un endroit où la doudoune est <b>coupée</b> ou <b>plus fine</b> : une couture, une fermeture éclair. La chaleur, comme l'eau qui fuit, prend toujours <b>le chemin le plus facile</b> pour sortir. Là où l'isolant s'interrompt, elle file.</p>
+      <p>Le plus souvent, ce chemin facile est du <b>béton</b> (une dalle, un refend, un acrotère) qui traverse l'isolant. Le béton conduit la chaleur environ <b>50 fois mieux</b> qu'un isolant (λ ≈ 2 W/(m·K) contre ≈ 0,04).</p>
+      <div class="fiche" style="margin-top:6px">
+        <div>
+          <div data-schema="plancher-inter|ITI|standard|0.9"></div>
+          <p class="aide" style="margin-top:6px">ITI : la dalle coupe l'isolant → grosse fuite (flèches rouges épaisses).</p>
+        </div>
+        <div>
+          <div data-schema="plancher-inter|ITE|standard|0.1"></div>
+          <p class="aide" style="margin-top:6px">ITE : l'isolant passe devant la dalle → presque plus de fuite.</p>
+        </div>
+      </div>
+      <p style="margin-top:12px">Deux conséquences : <b>plus de déperditions</b> (ta facture), et une <b>paroi froide</b> à cet endroit côté intérieur, qui peut provoquer de la <b>condensation et des moisissures</b> (les traînées noires dans les angles au plafond).</p>
+
+      <h2>2. U et ψ : deux unités à ne pas confondre</h2>
+      <ul>
+        <li><b>U</b> en <b>W/(m²·K)</b> : ce que perd <b>1 m² de paroi</b> pour 1 °C d'écart entre dedans et dehors. On le multiplie par une <b>surface</b> A.</li>
+        <li><b>ψ</b> (« psi ») en <b>W/(m·K)</b> : ce que perd <b>en plus 1 mètre de jonction</b> pour 1 °C d'écart. On le multiplie par une <b>longueur</b> L.</li>
+      </ul>
+      <p>Pourquoi une longueur ? Parce qu'une jonction entre deux parois (un nez de dalle, le tour d'une fenêtre) est une <b>ligne</b> : on parle de pont thermique <b>linéique</b>. (Il existe aussi des ponts thermiques ponctuels, notés χ, comme une fixation qui traverse l'isolant : non traités ici, voir (H).)</p>
+      <p>Exemple : ψ = 0,90 W/(m·K) veut dire que chaque mètre de nez de dalle perd 0,90 W par degré d'écart. Avec 20 °C dedans et 0 °C dehors : 0,90 × 20 = <b>18 W par mètre</b>, en permanence, soit une petite ampoule tous les mètres.</p>
+
+      <h2>3. Les formules</h2>
+      <div class="chaine" aria-label="Chaîne de calcul">
+        <div class="bloc"><b>ψ</b>W/(m·K)</div><span class="op">×</span>
+        <div class="bloc"><b>L</b>m</div><span class="op">=</span>
+        <div class="bloc res"><b>H liaison</b>W/K</div>
+      </div>
+      <div class="formule">H ponts thermiques = somme des ψ × L de chaque liaison
+H total            = Σ U × A (parois)  +  Σ ψ × L (ponts thermiques)
+Part des ponts     = Σ ψ × L / H total</div>
+      <p><b>H</b> (en W/K) est le « coefficient de déperdition » : les watts perdus pour chaque degré d'écart. Pour avoir une puissance en W, on multiplie par l'écart de température : P = H × (T intérieure − T extérieure).</p>
+      <p><b>Fourchette (H)</b> : une valeur tabulée n'est pas ton vrai détail. L'outil prend chaque ψ à ± 20 % (modifiable dans Données) et affiche une fourchette, plutôt qu'un chiffre faussement précis.</p>
+      <p><b>Normes</b> : NF EN ISO 14683 (méthode simplifiée et valeurs tabulées) ; NF EN ISO 10211 (calcul numérique 2D/3D, la méthode de référence) ; en France, règles <b>Th-U</b> et <b>Th-Bât</b>, fascicule « Ponts thermiques » (CSTB), qui donne des valeurs tabulées pour les cas courants.</p>
+
+      <h2>4. Pourquoi ITI, ITE et ITR changent tout</h2>
+      <p>La seule question à te poser devant un détail : <b>est-ce que l'isolant fait le tour sans s'interrompre ?</b></p>
+      <div class="defilement">
+        <table>
+          <thead><tr><th>Liaison</th><th>ITI</th><th>ITE</th><th>ITR</th></tr></thead>
+          <tbody id="tableau-comparatif"></tbody>
+        </table>
+      </div>
+      <p class="aide" style="margin-top:6px">Valeurs du catalogue actuel (onglet Données), variante standard.</p>
+      <ul>
+        <li><b>ITI</b> : l'isolant est à l'intérieur, donc <b>chaque dalle et chaque refend le coupent</b>. Gros ponts thermiques aux planchers et refends, petits aux fenêtres.</li>
+        <li><b>ITE</b> : l'isolant enveloppe tout le bâtiment par dehors. Planchers et refends deviennent presque neutres. <b>Mais</b> les points où l'ITE s'arrête deviennent les points faibles : soubassement, acrotère, tableaux de fenêtres.</li>
+        <li><b>ITR</b> : le mur isole dans toute son épaisseur, mais les dalles béton s'y encastrent. Situation intermédiaire, d'où l'intérêt des planelles isolées.</li>
+      </ul>
+
+      <h2>5. Exemple refait à la main</h2>
+      <p>Petit bâtiment tertiaire. Relevé : 60 m de nez de dalle (périmètre 30 m × 2 planchers intermédiaires), 8 refends × 2,5 m = 20 m, 80 m de tour de fenêtres. Déperditions des parois Σ U × A = 320 W/K.</p>
+      <div class="formule">ÉTAT ACTUEL — ITI
+Plancher intermédiaire   0,90 × 60 = 54 W/K
+Refend                   0,70 × 20 = 14 W/K
+Menuiseries              0,10 × 80 =  8 W/K
+H ponts thermiques                  = 76 W/K
+H total = 320 + 76 = 396 W/K   →   part = 76 / 396 = 19 %
+Fourchette ± 20 % : 61 à 91 W/K   →   16 à 22 %
+
+APRÈS ITE (tableaux non isolés)
+Plancher 0,10 × 60 = 6 ; refend 0,05 × 20 = 1 ; menuiseries 0,40 × 80 = 32
+H ponts thermiques = 39 W/K   →   part = 39 / 359 = 11 %
+
+APRÈS ITE + retour d'isolant en tableau
+Menuiseries 0,15 × 80 = 12   →   H ponts = 19 W/K   →   part = 19 / 339 = 6 %</div>
+      <p>Ce que ça raconte : l'ITE divise les ponts thermiques par 2 à 4, <b>à condition de soigner les tableaux</b>. Sans retour d'isolant, les fenêtres deviennent le premier pont thermique du bâtiment. C'est une phrase utile dans une fiche préconisation.</p>
+      <p class="aide">(H) Pour simplifier, Σ U × A est gardé à 320 W/K dans les trois cas. En vrai, l'ITE améliore aussi le U des murs, donc Σ U × A baisse.</p>
+
+      <h2>6. Comment mesurer les longueurs L</h2>
+      <ul id="liste-mesures"></ul>
+      <p class="aide">(H) Les ψ des règles Th-U sont en <b>dimensions intérieures</b> : mesure les longueurs côté intérieur, comme pour les surfaces A.</p>
+
+      <h2>7. D'où viennent les valeurs</h2>
+      <ul>
+        <li><b>Le vrai calcul est en 2D numérique</b> (NF EN ISO 10211) : on découpe le détail en petits morceaux et un logiciel calcule la température en chaque point. Le ψ, c'est ce que le détail perd en plus de deux parois « parfaites ». Ce calcul est fait pour les catalogues et les avis techniques, rarement en audit.</li>
+        <li><b>En audit</b>, on utilise des valeurs <b>tabulées</b> : fascicule Th-Bât « Ponts thermiques », avis techniques des rupteurs, valeurs par défaut de NF EN ISO 14683 (assez pénalisantes).</li>
+        <li><b>Dans Pléiades</b>, tu saisis ces ψ et ces longueurs dans la description de l'enveloppe : cet outil t'aide à choisir la bonne valeur et à la justifier.</li>
+        <li>Les valeurs de cet outil sont des <b>ordres de grandeur d'exemple</b>. Passe chaque valeur en « validé » quand tu l'as vérifiée dans le fascicule.</li>
+      </ul>
+
+      <h2>8. Limites connues (H)</h2>
+      <ul>
+        <li><b>(H)</b> Une seule valeur par cas, alors qu'en vrai ψ dépend de l'épaisseur d'isolant, de la nature du mur, de l'épaisseur de dalle… Le fascicule Th-Bât donne des tableaux bien plus détaillés.</li>
+        <li><b>(H)</b> Menuiserie : une seule valeur moyenne pour l'appui, les tableaux et le linteau. En réalité l'appui est souvent le plus défavorable.</li>
+        <li><b>(H)</b> Plancher bas : dalle sur vide sanitaire ou sous-sol, isolée en sous-face. Un terre-plein ou une isolation sous chape donnent d'autres valeurs.</li>
+        <li><b>(H)</b> Toiture-terrasse isolée par l'extérieur (isolant sur la dalle, sous l'étanchéité).</li>
+        <li><b>(H)</b> Les ponts thermiques ponctuels χ (fixations, consoles, chevilles d'ITE) sont ignorés.</li>
+        <li><b>(H)</b> Fourchette ± 20 % : c'est une convention de l'outil, pas une incertitude calculée.</li>
+        <li><b>(H)</b> Les seuils « faible / moyen / fort » sont une convention de lecture, pas une norme.</li>
+      </ul>
+
+      <h2>9. Où est le code</h2>
+      <ul>
+        <li><code>outils/ponts-thermiques/calcul.js</code> : <b>tout le calcul</b>, commenté en français.</li>
+        <li><code>outils/ponts-thermiques/schemas.js</code> : les dessins SVG (aucun calcul).</li>
+        <li><code>outils/ponts-thermiques/interface.js</code> : l'affichage et les boutons (aucun calcul).</li>
+        <li><code>donnees/ponts-thermiques-exemple.js</code> : le catalogue d'exemple et les explications (public).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET DONNÉES ===================== -->
+  <section class="panneau" id="onglet-donnees" role="tabpanel" hidden>
+
+    <div class="carte">
+      <div class="carte-titre">
+        <h2>Mon catalogue</h2>
+        <span id="stats-biblio" class="aide"></span>
+      </div>
+      <div class="alerte info">Tes valeurs restent <b>dans ce navigateur</b>, sur cet appareil. Elles ne partent jamais sur GitHub. Pour les sauvegarder ou les passer du PC au téléphone : <b>Exporter</b> puis <b>Importer</b> le fichier JSON.</div>
+      <div class="barre-boutons">
+        <button type="button" class="bouton principal" id="btn-exporter">Exporter (JSON)</button>
+        <label class="bouton" for="fichier-import" style="cursor:pointer">Importer (JSON)</label>
+        <input type="file" id="fichier-import" accept=".json,application/json" hidden>
+        <button type="button" class="bouton discret danger" id="btn-reinitialiser">Revenir aux exemples</button>
+      </div>
+    </div>
+
+    <div class="carte">
+      <div class="carte-titre">
+        <h2>Valeurs de ψ</h2>
+        <span class="aide">W/(m·K), dimensions intérieures</span>
+      </div>
+      <div class="champs" style="margin-bottom:12px">
+        <div class="champ">
+          <label for="filtre-liaison">Liaison</label>
+          <select id="filtre-liaison"></select>
+        </div>
+      </div>
+      <div class="defilement">
+        <table class="table-edition">
+          <thead>
+            <tr>
+              <th>Liaison</th>
+              <th>Isolant</th>
+              <th>Détail constructif</th>
+              <th class="num">ψ</th>
+              <th>Mois</th>
+              <th>Source</th>
+              <th>Statut</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="corps-valeurs"></tbody>
+        </table>
+      </div>
+      <div class="barre-boutons" style="margin-top:12px">
+        <select id="ajout-liaison" aria-label="Liaison de la nouvelle variante" style="width:auto"></select>
+        <select id="ajout-isolation" aria-label="Isolant de la nouvelle variante" style="width:auto"></select>
+        <button type="button" class="bouton" id="btn-ajouter-valeur">+ Ajouter une variante</button>
+      </div>
+      <p class="aide" style="margin:8px 0 0">Ajoute une variante pour un détail précis (un rupteur d'un fabricant, un cas du fascicule…). Elle apparaîtra dans « Détail constructif » de l'onglet Calcul.</p>
+    </div>
+
+    <div class="carte">
+      <div class="carte-titre"><h2>Réglages de lecture (H)</h2></div>
+      <div class="champs">
+        <div class="champ">
+          <label for="seuil-faible">ψ faible en dessous de</label>
+          <input type="text" inputmode="decimal" id="seuil-faible">
+        </div>
+        <div class="champ">
+          <label for="seuil-moyen">ψ moyen en dessous de</label>
+          <input type="text" inputmode="decimal" id="seuil-moyen">
+        </div>
+        <div class="champ">
+          <label for="seuil-fort">ψ fort en dessous de</label>
+          <input type="text" inputmode="decimal" id="seuil-fort">
+        </div>
+        <div class="champ">
+          <label for="statut-seuils">Statut des seuils</label>
+          <select id="statut-seuils"><option value="exemple">exemple</option><option value="valide">validé</option></select>
+        </div>
+      </div>
+      <p class="aide" id="source-seuils" style="margin:8px 0 16px"></p>
+      <div class="champs">
+        <div class="champ">
+          <label for="incertitude">Incertitude sur ψ (± %)</label>
+          <input type="text" inputmode="decimal" id="incertitude">
+        </div>
+        <div class="champ">
+          <label for="statut-incertitude">Statut de l'incertitude</label>
+          <select id="statut-incertitude"><option value="exemple">exemple</option><option value="valide">validé</option></select>
+        </div>
+      </div>
+      <p class="aide" id="source-incertitude" style="margin:8px 0 0"></p>
+    </div>
+  </section>
+</main>
+
+<footer class="pied">
+  Outil personnel d'aide à l'audit énergétique. Les ψ tabulés sont des estimations ; le calcul de référence est numérique (NF EN ISO 10211).
+</footer>
+
+<script src="../../commun/commun.js"></script>
+<script src="../../donnees/ponts-thermiques-exemple.js"></script>
+<script src="calcul.js"></script>
+<script src="schemas.js"></script>
+<script src="interface.js"></script>
+</body>
+</html>

@@ -55,7 +55,8 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
 - Les vraies données d'Émile vivent dans le `localStorage` de son navigateur, avec export/import JSON.
 - **Ne jamais renommer les clés localStorage existantes** sans migration automatique, sinon Émile perd
   ses ratios : `bao.chiffrage.biblio.v1`, `bao.chiffrage.projet.v1`, `bao.chiffrage.projets.v1`,
-  `bao.bt01.perso.v1`, `bao.chiffrage.onglet`.
+  `bao.bt01.perso.v1`, `bao.chiffrage.onglet`, et pour les ponts thermiques `bao.ponts.biblio.v1`,
+  `bao.ponts.projet.v1`, `bao.ponts.projets.v1`, `bao.ponts.onglet`.
 
 ## Comment travailler avec Émile
 
@@ -70,14 +71,17 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
 1. `node --check` sur chaque fichier `.js`.
 2. Recalcul de l'exemple de l'onglet Méthode du chiffrage : ITE sous enduit, 300 m², 120–190 €/m² (janv. 2025),
    tertiaire, complexité 3, site occupé, BT01 août 2026 = 139,4 → **48 100 – 76 100 € HT** (arrondi 100 €).
-3. Ouverture dans un navigateur sans erreur console (Playwright est disponible), test à 390 px de large.
+3. Recalcul de l'exemple de l'onglet Méthode des ponts thermiques (valeurs d'exemple) : ITI, plancher intermédiaire
+   0,90 × 60 m + refend 0,70 × 20 m + menuiseries 0,10 × 80 m = **76 W/K** ; avec Σ U × A = 320 W/K → part **19 %**,
+   fourchette ± 20 % → **16 – 22 %**.
+4. Ouverture dans un navigateur sans erreur console (Playwright est disponible), test à 390 px de large.
 
 ## État au 29/10/2026
 
 | Outil | État |
 |---|---|
 | Chiffrage des préconisations | **V1 en ligne.** 21 ratios d'exemple, coefficients type de bâtiment / complexité 1-4 / site occupé, actualisation BT01, MOE + aléas + TVA, export Word / CSV / impression, chiffrages enregistrés. |
-| Ponts thermiques ψ | À faire. Catalogue de liaisons (plancher intermédiaire/façade, refend, plancher bas, toiture/acrotère, menuiserie) × position de l'isolant (ITI, ITE, ITR), valeurs tabulées type règles Th-Bât, schéma SVG de chaque liaison, impact sur les déperditions. Préciser que le vrai calcul est en 2D numérique. |
+| Ponts thermiques ψ | **V1 (PR en cours).** 5 liaisons × ITI/ITE/ITR + variantes traitées (rupteur, retour d'isolant, soubassement, acrotère isolé), 21 ψ d'exemple « esprit Th-Bât » à vérifier, schéma SVG avec flux (`schemas.js`), explication du pourquoi, Σ ψ × L et part dans Σ U×A + Σ ψ×L (saisi), fourchette ± 20 % (H), variantes perso, calculs enregistrés, export Word / CSV / JSON. |
 | Confort d'été et inertie | À faire. Classe d'inertie, déphasage et amortissement des parois (ISO 13786), position de la masse, facteur solaire vitrages + protections, effet du brassage d'air. Émile a fait son travail de fin de BUT sur le confort d'été en STD Pléiades. |
 
 **Prochaine étape côté Émile :** remplacer les ratios d'exemple par ses vraies sources (devis, DPGF),
