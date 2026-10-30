@@ -711,10 +711,210 @@
     };
   };
 
+  /* ---------- « Teste-toi » : petits exercices corrigés ----------
+     Un exercice = { titre, generer(hasard) } ; generer renvoie :
+       { enonce (HTML), type: 'nombre', reponse, unite, tolerance, correction (texte) }
+     ou { enonce, type: 'choix', choix: ['…', '…'], bonne: index, correction }.
+     tolerance : écart accepté, en valeur absolue (ex. 0,5 pour « à 0,5 près »).
+     La réponse est toujours calculée par le calcul.js de l'outil : l'exercice ne refait pas les formules. */
+
+  // Tirage au hasard reproductible (même graine → mêmes exercices) : utile pour les tests.
+  BAO.hasard = function (graine) {
+    let a = (graine === undefined ? Math.floor(Math.random() * 4294967296) : graine) >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  // Un nombre au hasard entre min et max, par pas de « pas » (ex. 10 à 120 m par pas de 5).
+  BAO.tirer = function (hasard, min, max, pas) {
+    const n = Math.floor((max - min) / pas + 1e-9) + 1;
+    return Math.round((min + Math.floor(hasard() * n) * pas) * 1e6) / 1e6;
+  };
+
+  // Vrai si la réponse tapée est juste (à la tolérance près). Accepte « 19 % », « 1 250,5 »…
+  BAO.verifierReponse = function (exercice, texte) {
+    if (exercice.type === 'choix') return Number(texte) === exercice.bonne;
+    const n = BAO.lireNombre(String(texte === undefined ? '' : texte).replace(/[^\d,.\-\s]/g, ''));
+    if (!isFinite(n)) return false;
+    return Math.abs(n - exercice.reponse) <= (exercice.tolerance || Math.abs(exercice.reponse) * 0.01);
+  };
+
+  BAO.testeToi = function (element, exercices) {
+    if (!element || !exercices || !exercices.length) return;
+    const hasard = BAO.hasard();
+    const score = { justes: 0, total: 0 };
+    const enCours = [];
+
+    function carte(i) {
+      const ex = exercices[i];
+      const e = ex.generer(hasard);
+      enCours[i] = e;
+      const saisie = e.type === 'choix'
+        ? '<div class="barre-boutons">' + e.choix.map(function (c, k) {
+          return '<button type="button" class="bouton" data-choix="' + k + '">' + BAO.echapper(c) + '</button>';
+        }).join('') + '</div>'
+        : '<div class="barre-boutons"><input type="text" inputmode="decimal" class="petit-champ" data-reponse aria-label="Ta réponse" style="max-width:140px">' +
+          '<span class="muet">' + BAO.echapper(e.unite || '') + '</span>' +
+          '<button type="button" class="bouton principal" data-action="verifier">Vérifier</button></div>';
+      return '<div class="exercice" data-index="' + i + '"><div class="exercice-titre">' + BAO.echapper(ex.titre) + '</div>' +
+        '<p>' + e.enonce + '</p>' + saisie +
+        '<div class="exercice-retour" aria-live="polite"></div>' +
+        '<button type="button" class="bouton discret" data-action="autre">↻ Un autre</button></div>';
+    }
+
+    function rendre() {
+      element.innerHTML = '<p class="aide" data-score>Les valeurs changent à chaque fois : refais-les jusqu\'à ce que ce soit automatique.</p>' +
+        exercices.map(function (ex, i) { return carte(i); }).join('');
+    }
+
+    function corriger(bloc, i, reponse) {
+      const e = enCours[i];
+      const juste = BAO.verifierReponse(e, reponse);
+      score.total++;
+      if (juste) score.justes++;
+      const attendu = e.type === 'choix' ? e.choix[e.bonne] : BAO.nombre(e.reponse, e.decimales || 0) + ' ' + (e.unite || '');
+      bloc.querySelector('.exercice-retour').innerHTML =
+        '<div class="alerte ' + (juste ? 'ok' : 'attention') + '" style="margin:8px 0">' +
+        (juste ? '✅ Juste !' : '❌ Pas tout à fait : la bonne réponse est <b>' + BAO.echapper(attendu) + '</b>.') + '</div>' +
+        '<div class="formule">' + BAO.echapper(e.correction) + '</div>';
+      element.querySelector('[data-score]').textContent = 'Ton score : ' + score.justes + ' / ' + score.total + ' juste' + (score.justes > 1 ? 's' : '') + '.';
+    }
+
+    element.addEventListener('click', function (ev) {
+      const bloc = ev.target.closest('.exercice');
+      if (!bloc) return;
+      const i = Number(bloc.dataset.index);
+      const b = ev.target.closest('[data-action], [data-choix]');
+      if (!b) return;
+      if (b.dataset.action === 'autre') {
+        bloc.outerHTML = carte(i);
+      } else if (b.dataset.action === 'verifier') {
+        corriger(bloc, i, bloc.querySelector('[data-reponse]').value);
+      } else if (b.dataset.choix !== undefined) {
+        corriger(bloc, i, b.dataset.choix);
+      }
+    });
+    element.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Enter' || !ev.target.matches('[data-reponse]')) return;
+      const bloc = ev.target.closest('.exercice');
+      corriger(bloc, Number(bloc.dataset.index), ev.target.value);
+    });
+    rendre();
+  };
+
+  /* ---------- Lexique (données : donnees/lexique.js) ----------
+     Un bouton « Lexique » dans l'en-tête de chaque page ouvre un panneau avec recherche.
+     Dans l'onglet Méthode, la 1re apparition de chaque terme d'une section devient cliquable. */
+  BAO.lienLexique = function (racine) {
+    const termes = (global.LEXIQUE && global.LEXIQUE.termes) || [];
+    if (!termes.length || !racine) return 0;
+    let liens = 0;
+    const motifs = [];
+    termes.forEach(function (t) {
+      (t.motifs || []).forEach(function (m) { motifs.push({ id: t.id, motif: m }); });
+    });
+    // Les motifs les plus longs d'abord (« énergie finale » avant « énergie »).
+    motifs.sort(function (a, b) { return b.motif.length - a.motif.length; });
+    const echapperRegex = function (t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+
+    const sections = racine.querySelectorAll('.section-methode');
+    (sections.length ? Array.from(sections) : [racine]).forEach(function (section) {
+      const dejaLies = {};
+      motifs.forEach(function (m) {
+        if (dejaLies[m.id]) return;
+        const re = new RegExp('(?<![\\p{L}\\p{N}])' + echapperRegex(m.motif) + '(?![\\p{L}\\p{N}])', 'u');
+        const marcheur = document.createTreeWalker(section, NodeFilter.SHOW_TEXT, {
+          acceptNode: function (n) {
+            return n.parentElement.closest('.formule, .chaine, .exercice, code, a, button, summary, h2, h3, .terme, table, svg')
+              ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+          }
+        });
+        let noeud;
+        while ((noeud = marcheur.nextNode())) {
+          const r = re.exec(noeud.nodeValue);
+          if (!r) continue;
+          const apres = noeud.splitText(r.index);
+          apres.splitText(r[0].length);
+          const bouton = document.createElement('button');
+          bouton.type = 'button';
+          bouton.className = 'terme';
+          bouton.dataset.terme = m.id;
+          bouton.textContent = apres.nodeValue;
+          apres.parentNode.replaceChild(bouton, apres);
+          dejaLies[m.id] = true;
+          liens++;
+          break;
+        }
+      });
+    });
+    return liens;
+  };
+
+  BAO.initLexique = function () {
+    const termes = (global.LEXIQUE && global.LEXIQUE.termes) || [];
+    const entete = document.querySelector('.entete-interieur');
+    if (!termes.length || !entete || document.querySelector('.lexique-panneau')) return;
+
+    const bouton = document.createElement('button');
+    bouton.type = 'button';
+    bouton.className = 'bouton discret bouton-lexique';
+    bouton.textContent = 'Lexique';
+    const version = entete.querySelector('.version');
+    entete.insertBefore(bouton, version || null);
+    if (!version) bouton.style.marginLeft = 'auto';
+
+    const panneau = document.createElement('aside');
+    panneau.className = 'lexique-panneau';
+    panneau.hidden = true;
+    panneau.setAttribute('aria-label', 'Lexique');
+    const tries = termes.slice().sort(function (a, b) { return a.terme.localeCompare(b.terme, 'fr'); });
+    panneau.innerHTML = '<div class="lexique-tete"><h2>Lexique</h2>' +
+      '<button type="button" class="bouton discret" data-action="fermer" aria-label="Fermer le lexique">✕</button></div>' +
+      '<input type="search" placeholder="Chercher un mot (ψ, DJU, fRsi…)" aria-label="Chercher dans le lexique">' +
+      '<dl>' + tries.map(function (t) {
+        return '<div class="lexique-terme" data-id="' + BAO.echapper(t.id) + '" data-texte="' + BAO.echapper((t.terme + ' ' + t.definition).toLowerCase()) + '">' +
+          '<dt>' + BAO.echapper(t.terme) + (t.unite ? ' <span class="muet">(' + BAO.echapper(t.unite) + ')</span>' : '') + '</dt>' +
+          '<dd>' + BAO.echapper(t.definition) + (t.source ? '<br><span class="aide">Source : ' + BAO.echapper(t.source) + '</span>' : '') + '</dd></div>';
+      }).join('') + '</dl>';
+    document.body.appendChild(panneau);
+
+    function ouvrir(id) {
+      panneau.hidden = false;
+      const champ = panneau.querySelector('input');
+      panneau.querySelectorAll('.lexique-terme').forEach(function (el) {
+        el.hidden = false;
+        el.classList.toggle('vise', el.dataset.id === id);
+      });
+      champ.value = '';
+      const vise = id && panneau.querySelector('.lexique-terme[data-id="' + CSS.escape(id) + '"]');
+      if (vise) vise.scrollIntoView({ block: 'center' });
+      else champ.focus();
+    }
+    bouton.addEventListener('click', function () { if (panneau.hidden) ouvrir(null); else panneau.hidden = true; });
+    panneau.addEventListener('click', function (e) { if (e.target.closest('[data-action="fermer"]')) panneau.hidden = true; });
+    panneau.querySelector('input').addEventListener('input', function (e) {
+      const q = e.target.value.trim().toLowerCase();
+      panneau.querySelectorAll('.lexique-terme').forEach(function (el) { el.hidden = q && el.dataset.texte.indexOf(q) === -1; });
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') panneau.hidden = true; });
+    document.addEventListener('click', function (e) {
+      const t = e.target.closest('.terme[data-terme]');
+      if (t) ouvrir(t.dataset.terme);
+    });
+
+    document.querySelectorAll('.methode').forEach(function (bloc) { BAO.lienLexique(bloc); });
+  };
+
   /* ---------- Démarrage commun à toutes les pages ---------- */
   if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', BAO.afficherRappelSauvegarde);
-    else BAO.afficherRappelSauvegarde();
+    const demarrer = function () { BAO.afficherRappelSauvegarde(); BAO.initLexique(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
+    else demarrer();
     if (global.addEventListener) {
       // À l'impression, toutes les sections de la Méthode sont ouvertes.
       global.addEventListener('beforeprint', function () {

@@ -37,8 +37,10 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
   commun/style.css           style partagé (variables de couleur, clair/sombre)
   commun/commun.js           fonctions partagées (objet global BAO) : stockage + suivi des sauvegardes,
                              sauvegarde complète / restauration, nombres FR, onglets, sections repliables,
-                             exports Word / CSV / JSON, badges exemple/validé, calculs enregistrés
-  donnees/                   données PUBLIQUES (exemples, indice BT01, bâtiment et prix d'énergie d'exemple)
+                             exports Word / CSV / JSON, badges exemple/validé, calculs enregistrés,
+                             exercices « Teste-toi » (BAO.testeToi), lexique (BAO.initLexique, panneau + mots cliquables)
+  donnees/                   données PUBLIQUES (exemples, indice BT01, bâtiment et prix d'énergie d'exemple,
+                             lexique.js : les mots des outils expliqués simplement, avec leur source)
   outils/batiment/           DOSSIER BÂTIMENT partagé : climat (DJU, T base), chauffage, consommations de l'état
                              initial, prix des énergies. Son calcul.js (W/K → kWh → €, puissance) est utilisé par
                              les autres outils ; ils lisent le bâtiment en cours via BAO.lireBatiment / BAO.lireEnergies.
@@ -46,12 +48,15 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
   outils/<outil>/calcul.js   TOUTE la logique de calcul, fonctions pures, commentées en français
   outils/<outil>/interface.js affichage et événements, AUCUN calcul
   outils/<outil>/schemas.js  (si besoin) dessins SVG, AUCUN calcul
+  outils/<outil>/exercices.js exercices « Teste-toi » tirés au hasard ; la bonne réponse vient TOUJOURS de calcul.js
   tests/*.test.js            tests Node (node --test) : syntaxe, exemples des Méthodes, données publiques
   tests/navigateur.js        vérification dans Chromium (Playwright), lancée à la main
   .github/workflows/         lance node --test à chaque PR et à chaque mise à jour de main
   ```
 - Avant d'écrire une fonction d'interface, regarder si `BAO` l'a déjà (badges, exports, calculs enregistrés…) :
   le code commun évite que les outils divergent.
+- Chaque outil a, en fin d'onglet Méthode, une section **« Teste-toi »** (exercices.js) et ses mots techniques
+  dans `donnees/lexique.js` (champ `motifs` : la 1re apparition par section de Méthode devient cliquable).
 - `calcul.js` doit rester lisible par un thermicien : fonctions courtes, noms en français,
   la formule écrite en commentaire en haut du fichier. Il s'exporte aussi en `module.exports` pour les tests Node.
 - Tout en **français** : interface (tutoiement), commentaires, messages de commit.
@@ -96,7 +101,10 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
    - ponts thermiques : ITI, 0,90 × 60 m + 0,70 × 20 m + 0,10 × 80 m = **76 W/K** ; Σ U × A = 320 W/K → part **19 %**,
      fourchette ± 20 % → **16 – 22 %** ; après ITE 11 %, ITE + retour d'isolant 6 % ;
    - dossier bâtiment : 76 W/K × DJU 2 000 × 24 / 1000 = **3 648 kWh/an** → / 0,85 = 4 292 kWh de gaz → × 0,11 ≈ **472 €/an** ;
-     P = 76 × (19 − (−7)) = 1 976 W ; 1 W/K ≈ **6,21 €/an** ; après ITE (39 W/K) ≈ 242 €/an.
+     P = 76 × (19 − (−7)) = 1 976 W ; 1 W/K ≈ **6,21 €/an** ; après ITE (39 W/K) ≈ 242 €/an ;
+   - condensation (ponts thermiques) : 19 °C, 50 %, −7 °C dehors → point de rosée **8,3 °C**, moisissures sous **11,7 °C**,
+     fRsi minimal 0,72 ; plancher ITI (fRsi 0,75) → 12,5 °C ✅ ; acrotère ITI (0,68) → **10,7 °C** 🟠 ; à 60 % → condensation ❌ ;
+   - exercices « Teste-toi » : 40 tirages par exercice, bonne réponse acceptée, réponse fausse refusée.
 2. `node tests/navigateur.js` : pages sans erreur console, pas de défilement horizontal à 390 px (clair et sombre),
    exemples affichés à l'écran, sauvegarde complète et restauration.
 3. Si un exemple de Méthode change, mettre à jour **en même temps** le texte de la Méthode, le test et ce fichier.
@@ -108,14 +116,15 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
 | Chiffrage des préconisations | **V1 en ligne + lot 2.** 21 ratios d'exemple, coefficients type de bâtiment / complexité 1-4 / site occupé, actualisation BT01, MOE + aléas + TVA, chiffrages enregistrés. **Scénarios** (alternatives, chacun ses postes, dupliquer), **gains énergie par énergie** (avant = dossier bâtiment, après = STD ; gaz → PAC géré), économie €/an, **temps de retour brut** en fourchette (base TTC ou HT selon les prix), comparaison des scénarios, **fiche Word du scénario**, export CSV. Un ancien chiffrage sans scénario est repris dans « Scénario 1 ». |
 | Dossier bâtiment | **Lot 2.** Bâtiment en cours partagé : surface, DJU, T intérieure, T de base, énergie + rendement du chauffage, consommations de l'état initial (chaque valeur avec source et statut), prix des énergies (Données), bâtiments enregistrés, « ce que coûte 1 W/K ici ». |
 | Ponts thermiques ψ | **V1 en ligne + lot 2 (kWh/an, €/an, puissance via le dossier bâtiment).** 5 liaisons × ITI/ITE/ITR + variantes traitées (rupteur, retour d'isolant, soubassement, acrotère isolé), 21 ψ d'exemple « esprit Th-Bât » à vérifier, schéma SVG avec flux (`schemas.js`), explication du pourquoi, Σ ψ × L et part dans Σ U×A + Σ ψ×L (saisi), fourchette ± 20 % (H), variantes perso, calculs enregistrés, export Word / CSV / JSON. |
+| Lot 3 « comprendre » | **Condensation** dans les ponts thermiques (fRsi d'exemple par cas, θ paroi, point de rosée Magnus, seuil moisissures 80 % NF EN ISO 13788, verdict ✅/🟠/❌, humidité intérieure dans Données) ; **schéma interactif** (température de la paroi sur le schéma, curseur « température dehors », avant / après standard-traité) ; **Teste-toi** (4 exercices par outil) ; **lexique** (28 mots, bouton sur chaque page, mots cliquables dans les Méthodes). |
 | Commun (lot 1 « solide ») | Sauvegarde complète + restauration + rappel, avertissement « un stockage par adresse / appareil », tests Node + vérification GitHub, code d'interface mis en commun dans `BAO`, quantités et longueurs négatives refusées, noms de fichiers sans accents, Méthodes en sections repliables. |
 | Confort d'été et inertie | À faire. Classe d'inertie, déphasage et amortissement des parois (ISO 13786), position de la masse, facteur solaire vitrages + protections, effet du brassage d'air. Émile a fait son travail de fin de BUT sur le confort d'été en STD Pléiades. |
 
 **Prochaine étape côté Émile :** remplacer les ratios d'exemple par ses vraies sources (devis, DPGF),
 en commençant par les 5 postes qu'il chiffre le plus souvent.
 
-**Feuille de route proposée (29/10/2026)** — lots 1 « solide » et 2 « utile pour les rapports » faits ; ensuite au choix d'Émile :
-- Lot 3 « comprendre » : schémas interactifs, exercices « Teste-toi », lexique, risque de condensation (fRsi).
+**Feuille de route proposée (29/10/2026)** — lots 1 « solide », 2 « utile pour les rapports » et 3 « comprendre » faits ;
+ensuite au choix d'Émile : Audit flash (carte d'abord, voir plus bas), Confort d'été, ou :
 - Lot 4 : calcul 2D aux différences finies dans le navigateur, validé sur les cas de NF EN ISO 10211.
 
 ## Projet « Audit flash » (idée validée par Émile le 30/10/2026, pas commencé)

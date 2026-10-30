@@ -18,9 +18,15 @@
    Fourchette (H) : chaque ψ tabulé est pris à ± incertitude %
      ψ bas = ψ × (1 − i)        ψ haut = ψ × (1 + i)
 
+   Condensation et moisissures au droit de la liaison :
+     θ surface        = θe + fRsi × (θi − θe)
+     point de rosée   = formule de Magnus (air intérieur à θi et HR %)
+     seuil moisissures = point de rosée de l'air à HR / 0,8  (80 % d'humidité en surface)
+
    Normes de référence : NF EN ISO 14683 (méthode simplifiée, valeurs
-   tabulées), NF EN ISO 10211 (calcul numérique 2D/3D), règles Th-U et
-   Th-Bât, fascicule « Ponts thermiques » (France).
+   tabulées), NF EN ISO 10211 (calcul numérique 2D/3D), NF EN ISO 13788
+   (condensation, moisissures), règles Th-U et Th-Bât, fascicule
+   « Ponts thermiques » (France).
    ========================================================== */
 (function (global) {
   'use strict';
@@ -59,7 +65,7 @@
     return Number(psi) * Number(longueur);
   }
 
-  function calculerLigne(ligne, biblio, incertitude) {
+  function calculerLigne(ligne, biblio, incertitude, conditions) {
     const valeur = trouverValeur(biblio, ligne.valeurId);
     // Une longueur vide ou négative n'a pas de sens : elle compte pour 0 (signalé « sans longueur »).
     const L = Number(ligne.longueur);
@@ -69,6 +75,7 @@
     }
     const h = deperditionLiaison(valeur.psi, longueur);
     return {
+      condensation: risqueCondensation(valeur.fRsi, conditions),
       ligne: ligne,
       valeur: valeur,
       psi: Number(valeur.psi),
@@ -88,11 +95,14 @@
     return hPonts / total;
   }
 
-  function calculerProjet(projet, biblio) {
+  /* conditions (facultatif) : { ti, te } en °C, pour le risque de condensation.
+     L'humidité intérieure vient des réglages (Données). */
+  function calculerProjet(projet, biblio, conditions) {
     const reglages = biblio.reglages || {};
     const i = (Number((reglages.incertitude || {}).pct) || 0) / 100;
+    const cond = conditions ? Object.assign({ hr: Number((reglages.humidite || {}).hr) || 50 }, conditions) : null;
 
-    const lignes = (projet.lignes || []).map(function (l) { return calculerLigne(l, biblio, i); });
+    const lignes = (projet.lignes || []).map(function (l) { return calculerLigne(l, biblio, i, cond); });
     const somme = function (cle) { return lignes.reduce(function (s, l) { return s + l[cle]; }, 0); };
 
     const hPonts = { valeur: somme('h'), bas: somme('hBas'), haut: somme('hHaut') };
@@ -109,6 +119,9 @@
     const valeursExemple = lignes.filter(function (l) { return l.valeur && l.valeur.statut !== 'valide'; }).length;
     const lignesErreur = lignes.filter(function (l) { return l.erreur; }).length;
     const lignesSansLongueur = lignes.filter(function (l) { return !l.erreur && !(l.longueur > 0); }).length;
+    const risque = function (niveau) {
+      return lignes.filter(function (l) { return l.condensation && l.condensation.niveau === niveau; }).length;
+    };
     const reglagesExemple = [reglages.seuils, reglages.incertitude]
       .filter(function (r) { return r && r.statut !== 'valide'; }).length;
 
@@ -119,17 +132,74 @@
       hTotal: { valeur: hParois + hPonts.valeur, bas: hParois + hPonts.bas, haut: hParois + hPonts.haut },
       part: partPonts,
       incertitude: i,
+      conditions: cond,
       vigilance: {
         valeursExemple: valeursExemple,
         lignesErreur: lignesErreur,
         lignesSansLongueur: lignesSansLongueur,
         sansParois: !(hParois > 0),
+        lignesMoisissures: risque('moisissures'),
+        lignesCondensation: risque('condensation'),
+        lignesSansFRsi: cond ? lignes.filter(function (l) { return l.valeur && !l.condensation; }).length : 0,
         reglagesExemple: reglagesExemple
       }
     };
   }
 
-  /* ---------- 5. Arrondi d'affichage ----------
+  /* ---------- 5. Condensation et moisissures ----------
+     fRsi = facteur de température de surface intérieure (NF EN ISO 10211) :
+       fRsi = (θsi − θe) / (θi − θe)      donc      θsi = θe + fRsi × (θi − θe)
+     fRsi = 1 : la paroi est aussi chaude que l'air intérieur ; fRsi = 0 : aussi froide que dehors.
+
+     Exemple : fRsi = 0,75, θi = 19 °C, θe = −7 °C
+               θsi = −7 + 0,75 × (19 − (−7)) = −7 + 19,5 = 12,5 °C */
+  function temperatureSurface(fRsi, ti, te) {
+    return Number(te) + Number(fRsi) * (Number(ti) - Number(te));
+  }
+
+  /* Point de rosée : température à laquelle l'air (θ, HR %) commence à condenser.
+     Formule de Magnus, coefficients de Sonntag (1990), valable de −45 à +60 °C :
+       γ  = ln(HR / 100) + a × θ / (b + θ)        a = 17,62   b = 243,12 °C
+       θd = b × γ / (a − γ)
+     Exemple : 20 °C et 50 % → θd ≈ 9,3 °C */
+  const MAGNUS_A = 17.62;
+  const MAGNUS_B = 243.12;
+
+  function pointDeRosee(t, hr) {
+    const g = Math.log(Number(hr) / 100) + MAGNUS_A * Number(t) / (MAGNUS_B + Number(t));
+    return MAGNUS_B * g / (MAGNUS_A - g);
+  }
+
+  /* Moisissures : elles se développent dès que l'humidité AU CONTACT de la paroi dépasse
+     environ 80 % (critère de NF EN ISO 13788). La surface est donc à risque dès qu'elle est
+     plus froide que le point de rosée d'un air à HR / 0,8. */
+  function temperatureMoisissure(t, hr) {
+    return pointDeRosee(t, Math.min(100, Number(hr) / 0.8));
+  }
+
+  // conditions : { ti, te, hr }. Renvoie null si le fRsi est inconnu.
+  function risqueCondensation(fRsi, conditions) {
+    const f = Number(fRsi);
+    if (!(f > 0 && f <= 1) || !conditions) return null;
+    const ti = Number(conditions.ti), te = Number(conditions.te), hr = Number(conditions.hr);
+    const surface = temperatureSurface(f, ti, te);
+    const rosee = pointDeRosee(ti, hr);
+    const moisissure = temperatureMoisissure(ti, hr);
+    let niveau = 'ok';
+    if (surface <= rosee) niveau = 'condensation';
+    else if (surface <= moisissure) niveau = 'moisissures';
+    return {
+      fRsi: f,
+      surface: surface,
+      rosee: rosee,
+      moisissure: moisissure,
+      niveau: niveau,
+      // Le fRsi qu'il faudrait au minimum pour rester hors risque de moisissures dans ces conditions.
+      fRsiMin: (moisissure - te) / (ti - te)
+    };
+  }
+
+  /* ---------- 6. Arrondi d'affichage ----------
      Le calcul garde tous les chiffres ; on arrondit seulement ce qu'on montre. */
   function arrondir(valeur, pas) {
     const p = Number(pas);
@@ -144,6 +214,10 @@
     deperditionLiaison: deperditionLiaison,
     calculerLigne: calculerLigne,
     part: part,
+    temperatureSurface: temperatureSurface,
+    pointDeRosee: pointDeRosee,
+    temperatureMoisissure: temperatureMoisissure,
+    risqueCondensation: risqueCondensation,
     calculerProjet: calculerProjet,
     arrondir: arrondir
   };

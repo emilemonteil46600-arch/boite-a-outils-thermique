@@ -54,9 +54,12 @@
     const base = BAO.cloner(EXEMPLE);
     if (!b || !Array.isArray(b.valeurs)) return { version: 1, valeurs: base.valeurs, reglages: base.reglages };
     base.valeurs.forEach(function (v) {
-      if (!b.valeurs.some(function (x) { return x.id === v.id; })) b.valeurs.push(v);
+      const tienne = b.valeurs.find(function (x) { return x.id === v.id; });
+      if (!tienne) b.valeurs.push(v);
+      else if (tienne.fRsi === undefined) tienne.fRsi = v.fRsi;   // fRsi ajouté au lot 3
     });
     b.reglages = b.reglages || {};
+    if (!b.reglages.humidite) b.reglages.humidite = base.reglages.humidite;
     if (!b.reglages.seuils) b.reglages.seuils = base.reglages.seuils;
     if (!b.reglages.incertitude) b.reglages.incertitude = base.reglages.incertitude;
     return b;
@@ -83,7 +86,25 @@
     return n;
   }
 
-  function calculer() { return C.calculerProjet(projet, biblio); }
+  // Conditions du risque de condensation : T intérieure et T de base du dossier bâtiment (H : jour le plus froid).
+  function conditions(te) {
+    return { ti: Number(batiment.climat.ti), te: te === undefined ? Number(batiment.climat.tbase) : te, hr: Number(biblio.reglages.humidite.hr) };
+  }
+  function calculer() { return C.calculerProjet(projet, biblio, conditions()); }
+  // Curseur « température dehors » de la fiche (n'est pas enregistré).
+  let teCurseur = null;
+  let avantApres = false;
+
+  const VERDICTS = {
+    ok: '✅ pas de risque',
+    moisissures: '🟠 risque de moisissures',
+    condensation: '❌ condensation sur la paroi'
+  };
+  function badgeRisque(r) {
+    if (!r || r.niveau === 'ok') return '';
+    return ' <span class="badge ' + (r.niveau === 'condensation' ? 'danger' : 'exemple') + '">' + (r.niveau === 'condensation' ? 'condensation' : 'moisissures') + '</span>';
+  }
+  function degres(t) { return nb(t, 1) + ' °C'; }
   function sauverProjet() { BAO.ecrire(CLES.projet, projet); }
   function sauverBiblio() { BAO.ecrire(CLES.biblio, biblio); }
 
@@ -167,7 +188,9 @@
       return;
     }
 
-    $('#schema').innerHTML = S.dessiner(sel.liaison, sel.isolation, varianteDessin(v), v.psi);
+    const te = temperatureDehors();
+    const risque = C.risqueCondensation(v.fRsi, conditions(te));
+    dessinerSchema(v, te);
 
     const explication = EXEMPLE.explications[v.id] || 'Variante ajoutée par toi : note dans la source d\'où vient la valeur et pourquoi elle est différente du cas standard.';
 
@@ -189,9 +212,54 @@
       '<div class="barre-boutons" style="margin:6px 0 10px">' + badgeNiveau(v.psi) + badgeStatut(v.statut) + '</div>' +
       '<p style="margin-bottom:8px"><b>Pourquoi ?</b> ' + esc(explication) + '</p>' +
       '<p class="aide" style="margin-bottom:10px">Source : ' + esc(v.source || 'non renseignée') + (v.dateRef ? ' (' + esc(BAO.mois(v.dateRef)) + ')' : '') + '</p>' +
+      blocCondensation(v, risque, te) +
       '<h3 style="margin:0">Comparer pour cette liaison</h3>' +
       '<div class="barres">' + barres + '</div>' +
       '<p class="aide" style="margin:10px 0 0"><b>Longueur L :</b> ' + esc(l.mesure) + '</p>';
+  }
+
+  function temperatureDehors() { return teCurseur === null ? Number(batiment.climat.tbase) : teCurseur; }
+
+  // Le schéma de la fiche (ou les deux schémas « avant / après »), avec la température de la paroi.
+  function dessinerSchema(v, te) {
+    const sel = projet.selection;
+    const options = function (r) { return r ? { temperature: { texte: degres(r.surface), niveau: r.niveau } } : null; };
+    const liste = C.variantes(biblio, sel.liaison, sel.isolation);
+    const traite = liste.find(function (x) { return x.variante === 'traite'; }) || liste.find(function (x) { return x.variante !== 'standard'; });
+    const standard = liste.find(function (x) { return x.variante === 'standard'; });
+    if (avantApres && standard && traite) {
+      const vignette = function (x, titre) {
+        const r = C.risqueCondensation(x.fRsi, conditions(te));
+        return '<figure style="margin:0"><figcaption class="aide" style="margin-bottom:4px"><b>' + titre + '</b> · ' + esc(x.nomVariante) +
+          ' · ψ ' + psiTexte(x.psi) + (r ? ' · ' + degres(r.surface) : '') + '</figcaption>' +
+          S.dessiner(sel.liaison, sel.isolation, varianteDessin(x), x.psi, options(r)) + '</figure>';
+      };
+      $('#schema').innerHTML = '<div style="display:grid;gap:10px">' + vignette(standard, 'Avant') + vignette(traite, 'Après') + '</div>';
+    } else {
+      $('#schema').innerHTML = S.dessiner(sel.liaison, sel.isolation, varianteDessin(v), v.psi, options(C.risqueCondensation(v.fRsi, conditions(te))));
+    }
+    $('#btn-avant-apres').hidden = !(standard && traite);
+    $('#btn-avant-apres').textContent = avantApres ? 'Revenir au schéma seul' : 'Voir avant / après';
+  }
+
+  // Le bloc « Condensation et moisissures » de la fiche, avec le curseur de température extérieure.
+  function blocCondensation(v, r, te) {
+    return '<h3 style="margin:0 0 4px">Condensation et moisissures</h3>' +
+      '<div class="champ" style="margin-bottom:6px"><label for="curseur-te">Température dehors : <b id="valeur-te">' + degres(te) + '</b></label>' +
+      '<input type="range" id="curseur-te" min="-20" max="15" step="1" value="' + te + '" style="width:100%"></div>' +
+      '<div id="resultat-condensation">' + contenuCondensation(r) + '</div>';
+  }
+
+  function contenuCondensation(r) {
+    if (!r) {
+      return '<p class="aide" style="margin-bottom:12px">fRsi inconnu pour cette variante : ajoute-le dans l\'onglet Données pour voir le risque.</p>';
+    }
+    return '<div class="resultat-ligne"><span>Paroi côté pièce (fRsi ' + nb(r.fRsi, 2) + ')</span><span><b>' + degres(r.surface) + '</b></span></div>' +
+      '<div class="resultat-ligne"><span>Moisissures en dessous de</span><span>' + degres(r.moisissure) + '</span></div>' +
+      '<div class="resultat-ligne"><span>Condensation en dessous de</span><span>' + degres(r.rosee) + '</span></div>' +
+      '<p style="margin:6px 0 2px"><b>' + VERDICTS[r.niveau] + '</b> <span class="aide">(air intérieur ' + degres(Number(batiment.climat.ti)) +
+      ', ' + nb(Number(biblio.reglages.humidite.hr)) + ' % d\'humidité)</span></p>' +
+      '<p class="aide" style="margin:0 0 12px">Ici, il faudrait fRsi ≥ ' + nb(r.fRsiMin, 2) + ' pour éviter les moisissures. Bouge le curseur pour voir à partir de quel froid ça devient risqué.</p>';
   }
 
   /* ==========================================================
@@ -214,6 +282,12 @@
     lignes.push(pad('× L') + nb(l.longueur, 2).replace(/,00$/, '') + ' m');
     lignes.push(pad('= ψ × L') + nb(l.h, 2) + ' W/K');
     lignes.push(pad('fourchette ± ' + nb(res.incertitude * 100) + ' %') + nb(l.hBas, 2) + ' – ' + nb(l.hHaut, 2) + ' W/K');
+    const r = l.condensation;
+    if (r) {
+      const c = res.conditions;
+      lignes.push(pad('θ paroi') + nb(c.te, 1) + ' + ' + nb(r.fRsi, 2) + ' × (' + nb(c.ti, 1) + ' − (' + nb(c.te, 1) + ')) = ' + degres(r.surface) +
+        '   → ' + VERDICTS[r.niveau].replace(/^\S+ /, ''));
+    }
     lignes.push('');
     lignes.push('Source : ' + (v.source || 'non renseignée'));
     return lignes.join('\n');
@@ -230,7 +304,7 @@
     const L = l.ligne.longueur === undefined || l.ligne.longueur === null ? '' : String(l.ligne.longueur).replace('.', ',');
     return '<tr data-ligne="' + esc(id) + '">' +
       '<td class="cel-liaison"><select data-champ="valeurId" aria-label="Liaison">' + optionsValeurs(l.valeur.id) + '</select>' +
-      '<div style="margin-top:4px">' + badgeStatut(l.valeur.statut) + ' ' + badgeNiveau(l.psi) + '</div></td>' +
+      '<div style="margin-top:4px">' + badgeStatut(l.valeur.statut) + ' ' + badgeNiveau(l.psi) + badgeRisque(l.condensation) + '</div></td>' +
       '<td data-label="Repère"><input type="text" data-champ="repere" value="' + esc(l.ligne.repere || '') + '" placeholder="–" style="min-width:110px" aria-label="Repère"></td>' +
       '<td data-label="L (m)"><input type="text" inputmode="decimal" class="petit-champ" data-champ="longueur" value="' + esc(L) + '" placeholder="0" aria-label="Longueur en mètres"></td>' +
       '<td class="num" data-label="ψ (W/m.K)">' + psiTexte(l.psi) + '</td>' +
@@ -280,6 +354,10 @@
     if (v.reglagesExemple) alertes.push(v.reglagesExemple + ' réglage(s) de lecture encore en exemple (onglet Données).');
     if (v.lignesSansLongueur) alertes.push(v.lignesSansLongueur + ' liaison(s) sans longueur.');
     if (v.sansParois) alertes.push('Σ U × A des parois non saisi : la part des ponts thermiques ne peut pas être calculée.');
+    if (v.lignesCondensation) alertes.push(v.lignesCondensation + ' liaison(s) avec condensation sur la paroi par ' + degres(res.conditions.te) + ' dehors.');
+    if (v.lignesMoisissures) alertes.push(v.lignesMoisissures + ' liaison(s) à risque de moisissures par ' + degres(res.conditions.te) + ' dehors.');
+    if (v.lignesSansFRsi) alertes.push(v.lignesSansFRsi + ' liaison(s) sans fRsi : risque de condensation non évalué.');
+    if ((v.lignesCondensation || v.lignesMoisissures) && biblio.reglages.humidite.statut !== 'valide') alertes.push('Humidité intérieure encore en exemple (onglet Données).');
 
     let html = '<div class="carte-titre"><h2>Déperditions</h2></div>' +
       '<div class="aide" style="margin-top:-8px">' + esc(projet.nom || 'Sans nom') + '</div>';
@@ -385,7 +463,8 @@
     const n2 = function (v) { return BAO.nombreCSV(v, 2); };
     const cel = BAO.celluleCSV;
     const lignes = [[
-      'Liaison', 'Isolant', 'Détail constructif', 'Repère', 'ψ (W/m.K)', 'L (m)', 'ψ × L (W/K)', 'ψ × L bas', 'ψ × L haut', 'Statut', 'Source'
+      'Liaison', 'Isolant', 'Détail constructif', 'Repère', 'ψ (W/m.K)', 'L (m)', 'ψ × L (W/K)', 'ψ × L bas', 'ψ × L haut', 'Statut', 'Source',
+      'fRsi', 'θ paroi (°C)', 'Risque'
     ].map(cel).join(';')];
 
     res.lignes.forEach(function (l) {
@@ -393,7 +472,9 @@
       lignes.push([
         cel(liaison(l.valeur.liaison).nom), cel(l.valeur.isolation), cel(l.valeur.nomVariante), cel(l.ligne.repere),
         n2(l.psi), n2(l.longueur), n2(l.h), n2(l.hBas), n2(l.hHaut),
-        cel(l.valeur.statut === 'valide' ? 'validé' : 'exemple'), cel(l.valeur.source)
+        cel(l.valeur.statut === 'valide' ? 'validé' : 'exemple'), cel(l.valeur.source),
+        n2(l.condensation ? l.condensation.fRsi : ''), n2(l.condensation ? l.condensation.surface : ''),
+        cel(l.condensation ? l.condensation.niveau : 'fRsi inconnu')
       ].join(';'));
     });
     lignes.push('');
@@ -462,6 +543,7 @@
           '<td><b>' + esc(v.isolation) + '</b></td>' +
           '<td><input type="text" data-champ="nomVariante" value="' + esc(v.nomVariante || '') + '" style="min-width:230px" aria-label="Détail constructif"></td>' +
           '<td><input type="text" inputmode="decimal" data-champ="psi" value="' + esc(String(v.psi).replace('.', ',')) + '" style="width:70px;text-align:right" aria-label="ψ"></td>' +
+          '<td><input type="text" inputmode="decimal" data-champ="fRsi" value="' + esc(BAO.versChamp(v.fRsi)) + '" placeholder="?" style="width:62px;text-align:right" aria-label="fRsi"></td>' +
           '<td><input type="month" data-champ="dateRef" value="' + esc(v.dateRef || '') + '" style="min-width:140px" aria-label="Mois de la valeur"></td>' +
           '<td><input type="text" data-champ="source" value="' + esc(v.source || '') + '" style="min-width:260px" aria-label="Source"></td>' +
           '<td>' + selectStatut(v.statut, 'data-champ="statut"') + '</td>' +
@@ -485,6 +567,11 @@
       const n = BAO.lireNombre(valeur);
       if (!isFinite(n) || n < 0 || n > 5) { BAO.notifier('ψ invalide : tape un nombre entre 0 et 5 (ex. 0,45).'); renderValeurs(); return; }
       v.psi = n;
+    } else if (champ === 'fRsi') {
+      const f = BAO.lireNombre(valeur);
+      if (valeur.trim() === '') { delete v.fRsi; }
+      else if (!isFinite(f) || f <= 0 || f > 1) { BAO.notifier('fRsi invalide : tape un nombre entre 0 et 1 (ex. 0,75).'); renderValeurs(); return; }
+      else v.fRsi = f;
     } else {
       v[champ] = valeur;
     }
@@ -545,6 +632,10 @@
     $('#incertitude').value = String(inc.pct).replace('.', ',');
     $('#statut-incertitude').value = inc.statut === 'valide' ? 'valide' : 'exemple';
     $('#source-incertitude').textContent = 'Source : ' + (inc.source || 'non renseignée');
+    const hum = biblio.reglages.humidite;
+    $('#humidite').value = BAO.versChamp(hum.hr);
+    $('#statut-humidite').value = hum.statut === 'valide' ? 'valide' : 'exemple';
+    $('#source-humidite').textContent = 'Source : ' + (hum.source || 'non renseignée');
   }
 
   function apresReglage() {
@@ -766,6 +857,26 @@
       apresReglage();
     });
     $('#statut-incertitude').addEventListener('change', function (e) { biblio.reglages.incertitude.statut = e.target.value; apresReglage(); });
+    $('#humidite').addEventListener('change', function (e) {
+      const n = BAO.lireNombre(e.target.value);
+      if (!isFinite(n) || n <= 0 || n >= 100) { BAO.notifier('Humidité invalide : tape un pourcentage entre 1 et 99.'); renderReglages(); return; }
+      biblio.reglages.humidite.hr = n;
+      apresReglage();
+    });
+    $('#statut-humidite').addEventListener('change', function (e) { biblio.reglages.humidite.statut = e.target.value; apresReglage(); });
+
+    // --- Fiche : curseur de température extérieure et avant / après ---
+    // On ne redessine que le schéma et le résultat, pas le curseur (sinon il « lâche » pendant qu'on le fait glisser).
+    $('#fiche-valeur').addEventListener('input', function (e) {
+      if (e.target.id !== 'curseur-te') return;
+      teCurseur = Number(e.target.value);
+      const v = valeurChoisie();
+      if (!v) return;
+      $('#valeur-te').textContent = degres(teCurseur);
+      $('#resultat-condensation').innerHTML = contenuCondensation(C.risqueCondensation(v.fRsi, conditions(teCurseur)));
+      dessinerSchema(v, teCurseur);
+    });
+    $('#btn-avant-apres').addEventListener('click', function () { avantApres = !avantApres; renderFiche(); });
 
     // --- Données : export / import ---
     $('#btn-exporter').addEventListener('click', exporterBibliotheque);
@@ -782,6 +893,7 @@
      ========================================================== */
   BAO.initOnglets(CLES.onglet);
   BAO.noteStockage($('#note-stockage'), '../../index.html');
+  BAO.testeToi($('#teste-toi'), window.PontsExercices);
   BAO.sectionsRepliables('#onglet-methode .methode');
   brancherEvenements();
   renderTout();
