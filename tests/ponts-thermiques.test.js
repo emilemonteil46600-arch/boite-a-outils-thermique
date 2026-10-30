@@ -71,3 +71,12 @@ test('Les variantes d\'une liaison commencent par le cas standard', function () 
   assert.equal(v[0].variante, 'standard');
   assert.equal(v.length, 2);
 });
+
+test('Exemple Méthode « Combien ça coûte » : 76 W/K ≈ 472 €/an, après ITE 39 W/K ≈ 242 €/an', function () {
+  charger('donnees/batiment-exemple.js');
+  const B = charger('outils/batiment/calcul.js');
+  const r = calcul([{ valeurId: 'pi-iti', longueur: 60 }, { valeurId: 'rf-iti', longueur: 20 }, { valeurId: 'me-iti', longueur: 80 }]);
+  const en = B.enEnergie(r.hPonts, window.BATIMENT_EXEMPLE.batiment, window.BATIMENT_EXEMPLE.energies);
+  assert.equal(en.valeur.besoin, 3648);
+  assert.equal(Math.round(en.valeur.euros), 472);
+});

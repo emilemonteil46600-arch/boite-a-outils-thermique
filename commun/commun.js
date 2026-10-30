@@ -20,7 +20,10 @@
     'bao.bt01.perso.v1': 'Indice BT01 — les mois que tu as ajoutés',
     'bao.ponts.biblio.v1': 'Ponts thermiques — ton catalogue de ψ',
     'bao.ponts.projet.v1': 'Ponts thermiques — le calcul en cours',
-    'bao.ponts.projets.v1': 'Ponts thermiques — tes calculs enregistrés'
+    'bao.ponts.projets.v1': 'Ponts thermiques — tes calculs enregistrés',
+    'bao.batiment.v1': 'Dossier bâtiment — le bâtiment en cours',
+    'bao.batiments.v1': 'Dossier bâtiment — tes bâtiments enregistrés',
+    'bao.energies.v1': 'Dossier bâtiment — tes prix des énergies'
   };
 
   // Date de la dernière modification et du dernier export de chaque clé.
@@ -279,6 +282,69 @@
     element.innerHTML = 'Tes données restent <b>dans ce navigateur</b>, sur cet appareil (ici : ' + BAO.echapper(BAO.lieuStockage().texte) + '). ' +
       'Elles ne partent jamais sur GitHub. Les boutons ci-dessous sauvegardent <b>cet outil</b> ; pour <b>toute la boîte à outils</b> ' +
       '(et pour passer du PC au téléphone) : <a href="' + lienAccueil + '#mes-donnees">accueil › Mes données</a>.';
+  };
+
+  /* ---------- Dossier bâtiment (partagé par tous les outils) ----------
+     Le bâtiment en cours et les prix des énergies sont saisis une fois,
+     dans outils/batiment/, et lus ici par les autres outils.
+     Tant que tu n'as rien saisi, ce sont les valeurs d'exemple (donnees/batiment-exemple.js). */
+  BAO.CLE_BATIMENT = 'bao.batiment.v1';
+  BAO.CLE_ENERGIES = 'bao.energies.v1';
+
+  // Complète un bâtiment avec les champs d'exemple qui lui manquent (sans écraser les tiens).
+  BAO.completerBatiment = function (b) {
+    const base = BAO.cloner((global.BATIMENT_EXEMPLE || {}).batiment || {});
+    if (!b || typeof b !== 'object') return base;
+    ['climat', 'chauffage', 'consommations'].forEach(function (k) {
+      b[k] = Object.assign({}, base[k] || {}, b[k] || {});
+    });
+    if (!b.consommations.valeurs) b.consommations.valeurs = {};
+    if (b.nom === undefined) b.nom = base.nom;
+    if (b.surface === undefined) b.surface = base.surface;
+    return b;
+  };
+
+  BAO.lireBatiment = function () {
+    return BAO.completerBatiment(BAO.lire(BAO.CLE_BATIMENT, null));
+  };
+
+  // Tes prix des énergies ; une énergie ajoutée plus tard aux exemples apparaît sans écraser les tiennes.
+  BAO.completerEnergies = function (e) {
+    const base = BAO.cloner((global.BATIMENT_EXEMPLE || {}).energies || { base: 'TTC', liste: [] });
+    if (!e || !Array.isArray(e.liste)) return base;
+    base.liste.forEach(function (x) {
+      if (!e.liste.some(function (y) { return y.id === x.id; })) e.liste.push(x);
+    });
+    if (!e.base) e.base = base.base;
+    return e;
+  };
+
+  BAO.lireEnergies = function () {
+    return BAO.completerEnergies(BAO.lire(BAO.CLE_ENERGIES, null));
+  };
+
+  /* Petit bandeau « Bâtiment : … » en tête d'un outil.
+     nomLie : le bâtiment pour lequel le calcul a été fait (null si aucun).
+     surLier : fonction appelée quand tu lies le calcul au bâtiment ouvert. */
+  BAO.resumeBatiment = function (element, lienDossier, nomLie, surLier) {
+    const b = BAO.lireBatiment();
+    const energies = BAO.lireEnergies();
+    const e = (energies.liste || []).find(function (x) { return x.id === b.chauffage.energie; });
+    const c = b.climat;
+    let html = '<div class="barre-boutons" style="justify-content:space-between">' +
+      '<span><span class="muet">Dossier bâtiment :</span> <b>' + BAO.echapper(b.nom || 'sans nom') + '</b>' +
+      ' <span class="muet">· DJU ' + BAO.nombre(Number(c.dju)) + ' · ' + BAO.echapper(e ? e.nom : 'énergie ?') +
+      ' (rendement ' + BAO.nombre(Number(b.chauffage.rendement)) + ' %) · T base ' + BAO.nombre(Number(c.tbase)) + ' °C</span></span>' +
+      '<a class="bouton discret" href="' + lienDossier + '">Modifier le dossier bâtiment ›</a></div>';
+    if (nomLie && nomLie !== b.nom) {
+      html += '<div class="alerte attention" style="margin:8px 0 0">Ce calcul a été fait pour le bâtiment « ' + BAO.echapper(nomLie) +
+        ' », mais le dossier bâtiment ouvert est « ' + BAO.echapper(b.nom) + ' ». Les kWh et les € ci-dessous utilisent le bâtiment ouvert. ' +
+        '<button type="button" class="bouton discret" data-action="lier-batiment">Lier ce calcul à « ' + BAO.echapper(b.nom) + ' »</button></div>';
+    }
+    element.innerHTML = html;
+    const bouton = element.querySelector('[data-action="lier-batiment"]');
+    if (bouton && surLier) bouton.addEventListener('click', function () { surLier(b.nom); });
+    return b;
   };
 
   /* ---------- Nombres (format français) ---------- */

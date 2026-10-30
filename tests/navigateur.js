@@ -14,7 +14,7 @@ const { chromium } = require('playwright');
 
 const RACINE = path.join(__dirname, '..');
 const url = function (page) { return 'file://' + path.join(RACINE, page); };
-const PAGES = ['index.html', 'outils/chiffrage/index.html', 'outils/ponts-thermiques/index.html'];
+const PAGES = ['index.html', 'outils/batiment/index.html', 'outils/chiffrage/index.html', 'outils/ponts-thermiques/index.html'];
 const problemes = [];
 const ok = function (condition, message) {
   if (condition) console.log('  ✓ ' + message);
@@ -79,6 +79,12 @@ async function largeurs(page) {
   ok(await nbPostes() === 1 && await page.inputValue('#nom-projet') === 'École — état initial', 'Mes chiffrages : « Ouvrir » retrouve le chiffrage enregistré');
   await page.click('#btn-supprimer-projet');
   ok((await page.textContent('#liste-projets')).includes('Aucun chiffrage enregistré'), 'Mes chiffrages : « Supprimer » le retire de la liste');
+  await page.fill('#corps-gains tr[data-energie="gaz"] input', '120000');
+  const retour = (await page.textContent('#resultats')).replace(/\s/g, ' ');
+  if (dernierMois === '2026-08') ok(retour.includes('20 – 32 ans') && retour.includes('3 300 € TTC/an'), 'Gains : 3 300 € TTC/an, temps de retour 20 – 32 ans');
+  await page.click('#btn-dupliquer-scenario');
+  ok(await page.$$eval('#choix-scenarios [data-scenario]', function (b) { return b.length; }) === 2, 'Dupliquer : 2 scénarios');
+  ok(await page.$$eval('#comparaison .comparaison-scenario', function (t) { return t.length; }) === 2, 'Comparaison des 2 scénarios affichée');
 
   console.log('3. Exemple de la Méthode des ponts thermiques');
   await page.goto(url('outils/ponts-thermiques/index.html'));
@@ -95,10 +101,27 @@ async function largeurs(page) {
   await page.fill('#h-parois', '320');
   const part = (await page.textContent('#resultats .gros-chiffre')).replace(/\s/g, ' ');
   ok(part.includes('16 – 22 %'), 'Part des ponts thermiques = 16 – 22 % (' + part.trim() + ')');
+  ok((await page.textContent('#resultats')).replace(/\s/g, ' ').includes('= 472 €'), 'Ponts thermiques en euros : ≈ 472 €/an (bâtiment d\'exemple)');
   const schemas = await page.$$eval('#onglet-methode svg', function (s) { return s.length; });
   ok(schemas === 2, 'Les 2 schémas de la Méthode sont dessinés');
 
-  console.log('4. Rappel de sauvegarde, sauvegarde complète et restauration');
+  console.log('4. Dossier bâtiment partagé et ancien chiffrage');
+  await page.goto(url('outils/batiment/index.html'));
+  ok((await page.textContent('#resultats .gros-chiffre')).replace(/\s/g, ' ').includes('6,21'), '1 W/K coûte 6,21 €/an (bâtiment d\'exemple)');
+  await page.fill('#corps-hypotheses tr[data-hyp="0"] input[data-champ="valeur"]', '2500');
+  await page.press('#corps-hypotheses tr[data-hyp="0"] input[data-champ="valeur"]', 'Tab');
+  ok((await page.textContent('#resultats .gros-chiffre')).replace(/\s/g, ' ').includes('7,76'), 'DJU 2 500 → 7,76 €/an par W/K');
+  await page.goto(url('outils/ponts-thermiques/index.html'));
+  ok((await page.textContent('#resume-batiment')).replace(/\s/g, ' ').includes('DJU 2 500'), 'Les ponts thermiques lisent le dossier bâtiment modifié');
+  await page.evaluate(function () {
+    localStorage.setItem('bao.chiffrage.projet.v1', JSON.stringify({ nom: 'Ancien', typeBatiment: 'tertiaire', complexite: 2, siteOccupe: false,
+      frais: { moe: 10, aleas: 5, tva: 20 }, arrondi: 100, lignes: [{ id: 'l1', ratioId: 'ite-enduit', quantite: 100 }] }));
+  });
+  await page.goto(url('outils/chiffrage/index.html'));
+  ok(await page.$$eval('#choix-scenarios [data-scenario]', function (b) { return b.length; }) === 1 &&
+    await page.$$eval('#corps-lignes tr[data-ligne]', function (t) { return t.length; }) === 1, 'Ancien chiffrage (sans scénario) : repris dans « Scénario 1 »');
+
+  console.log('5. Rappel de sauvegarde, sauvegarde complète et restauration');
   await page.reload();
   ok(await page.$('.rappel-sauvegarde') !== null, 'Rappel affiché : données jamais sauvegardées');
   const [sauvegarde] = await Promise.all([page.waitForEvent('download'), page.click('.rappel-sauvegarde [data-action="sauver"]')]);

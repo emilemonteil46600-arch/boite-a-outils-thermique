@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dossier bâtiment — Boîte à outils thermique</title>
+  <meta name="description" content="Climat (DJU, température de base), chauffage, consommations et prix des énergies du bâtiment, partagés par tous les outils.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c4501b'/%3E%3Cpath d='M9 22h14M11 22V12l5-4 5 4v10' stroke='white' stroke-width='2.4' fill='none' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="../../commun/style.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="entete-interieur">
+    <a class="logo" href="../../index.html" title="Retour à la boîte à outils">
+      <svg width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="var(--accent)"/><path d="M9 22h14M11 22V12l5-4 5 4v10" stroke="#fff" stroke-width="2.4" fill="none" stroke-linejoin="round" stroke-linecap="round"/></svg>
+      <span>Boîte à outils thermique</span>
+    </a>
+    <span class="fil">› <b>Dossier bâtiment</b></span>
+    <span class="version">V1 · oct. 2026</span>
+  </div>
+</header>
+
+<main class="page">
+  <h1>Dossier bâtiment</h1>
+  <p class="intro">Le climat, le chauffage et les consommations du bâtiment, <b>saisis une fois</b> et utilisés par les autres outils : les ponts thermiques les traduisent en kWh et en €, le chiffrage s'en sert pour les gains et le temps de retour.</p>
+
+  <nav class="onglets" role="tablist" aria-label="Sections de l'outil">
+    <button data-onglet="calcul">Calcul</button>
+    <button data-onglet="methode">Méthode</button>
+    <button data-onglet="donnees">Données</button>
+  </nav>
+
+  <!-- ===================== ONGLET CALCUL ===================== -->
+  <section class="panneau" id="onglet-calcul" role="tabpanel">
+    <div class="grille-2">
+      <div>
+        <div class="carte">
+          <div class="carte-titre"><h2>Le bâtiment</h2></div>
+          <div class="champs">
+            <div class="champ">
+              <label for="nom-projet">Nom du bâtiment</label>
+              <input type="text" id="nom-projet" placeholder="ex. École du centre" autocomplete="off">
+            </div>
+            <div class="champ">
+              <label for="surface">Surface (m²)</label>
+              <input type="text" inputmode="decimal" id="surface" placeholder="ex. 1 500">
+            </div>
+          </div>
+          <p class="aide" style="margin:8px 0 0">Surface chauffée : celle que tu utilises dans ta STD (sert au ratio kWh/m²/an).</p>
+        </div>
+
+        <div class="carte">
+          <div class="carte-titre">
+            <h2>Climat et chauffage</h2>
+            <span class="aide">Chaque valeur a sa source et son statut</span>
+          </div>
+          <div class="defilement">
+            <table class="table-edition">
+              <thead><tr><th>Grandeur</th><th class="num">Valeur</th><th>Unité</th><th>Source</th><th>Statut</th></tr></thead>
+              <tbody id="corps-hypotheses"></tbody>
+            </table>
+          </div>
+          <div class="champs" style="margin-top:12px">
+            <div class="champ">
+              <label for="energie-chauffage">Énergie de chauffage</label>
+              <select id="energie-chauffage"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="carte">
+          <div class="carte-titre">
+            <h2>Consommations de l'état initial</h2>
+            <span class="aide">kWh d'énergie finale par an (ce qu'on lit sur les factures)</span>
+          </div>
+          <div class="defilement">
+            <table>
+              <thead><tr><th>Énergie</th><th class="num">kWh/an</th><th class="num">Prix (€/kWh)</th><th class="num">€/an</th><th></th></tr></thead>
+              <tbody id="corps-consos"></tbody>
+            </table>
+          </div>
+          <div class="barre-boutons" style="margin-top:10px">
+            <select id="ajout-energie" aria-label="Énergie à ajouter" style="width:auto"></select>
+            <button type="button" class="bouton" id="btn-ajouter-energie">+ Ajouter cette énergie</button>
+          </div>
+          <div class="champs" style="margin-top:12px">
+            <div class="champ" style="grid-column: span 2">
+              <label for="source-consos">Source des consommations</label>
+              <input type="text" id="source-consos" placeholder="ex. factures 2023-2025, ou STD état initial" autocomplete="off">
+            </div>
+            <div class="champ">
+              <label for="statut-consos">Statut</label>
+              <select id="statut-consos"><option value="exemple">exemple</option><option value="valide">validé</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="collant">
+        <div class="carte" id="resultats" aria-live="polite"></div>
+
+        <div class="carte pas-impression">
+          <h3>Mes bâtiments</h3>
+          <p class="aide">Le bâtiment en cours est celui qu'utilisent tous les outils. « Enregistrer » le range sous son nom pour le rouvrir plus tard.</p>
+          <div class="champ" style="margin-bottom:10px">
+            <label for="liste-projets">Bâtiments enregistrés</label>
+            <select id="liste-projets"></select>
+          </div>
+          <div class="barre-boutons">
+            <button type="button" class="bouton" id="btn-enregistrer">Enregistrer</button>
+            <button type="button" class="bouton" id="btn-ouvrir">Ouvrir</button>
+            <button type="button" class="bouton" id="btn-nouveau">Nouveau</button>
+            <button type="button" class="bouton discret danger" id="btn-supprimer-projet">Supprimer</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET MÉTHODE ===================== -->
+  <section class="panneau" id="onglet-methode" role="tabpanel" hidden>
+    <div class="carte methode">
+      <h2>1. À quoi sert ce dossier</h2>
+      <p>Les autres outils calculent des <b>W/K</b> (un coefficient de déperdition) ou des <b>coûts de travaux</b>. Pour parler au client, il faut des <b>kWh</b> et des <b>€ par an</b>. Ce passage dépend du bâtiment : son climat, son chauffage, le prix de son énergie. On le saisit ici une seule fois.</p>
+
+      <h2>2. Les degrés-jours (DJU), c'est quoi ?</h2>
+      <p>Chaque jour de la saison de chauffe, on regarde la température moyenne dehors et on compte <b>combien de degrés il manque pour arriver à 18 °C</b>. Une journée à 5 °C de moyenne compte 18 − 5 = <b>13 degrés-jours</b>. Une journée à 20 °C compte 0. On additionne sur l'année : c'est le <b>DJU</b>, en K·jour (ou °C·jour).</p>
+      <ul>
+        <li>Plus le climat est froid, plus le DJU est grand. Un DJU de 2 000 veut dire « l'équivalent de 2 000 jours avec 1 °C d'écart ».</li>
+        <li><b>Pourquoi 18 °C et pas 19 ou 20 ?</b> Le soleil, les occupants et les appareils chauffent gratuitement le bâtiment et apportent les derniers degrés (H). C'est la convention des DJU « base 18 » (méthode COSTIC, Météo-France).</li>
+        <li><b>Où les trouver</b> : DJU de la station météo la plus proche (Météo-France), ou le fichier météo de ta STD Pléiades.</li>
+      </ul>
+
+      <h2>3. De W/K à kWh : la formule</h2>
+      <div class="formule">Besoin (kWh/an) = H (W/K) × DJU (K·jour) × 24 (h/jour) / 1000</div>
+      <ul>
+        <li><b>H × DJU</b> : H watts par degré, multiplié par des « degrés × jours » → des <b>watts × jours</b>.</li>
+        <li><b>× 24</b> : un jour = 24 heures → des <b>Wh</b>.</li>
+        <li><b>/ 1000</b> : 1 kWh = 1 000 Wh → des <b>kWh</b>.</li>
+      </ul>
+
+      <h2>4. Du besoin à la facture</h2>
+      <div class="formule">Énergie finale (kWh/an) = Besoin / rendement global
+Coût (€/an)             = Énergie finale × prix de l'énergie (€/kWh)</div>
+      <ul>
+        <li><b>Besoin</b> : la chaleur qu'il faut apporter dans les pièces.</li>
+        <li><b>Rendement global</b> : le chauffage en perd une partie avant d'arriver dans la pièce (chaudière, tuyaux, régulation, radiateurs). Avec 85 %, il faut acheter 100 kWh pour en livrer 85. Une PAC a un « rendement » supérieur à 100 % (son COP) : elle puise de la chaleur dans l'air.</li>
+        <li><b>Énergie finale</b> : celle qu'on achète, lue sur les factures. À ne pas confondre avec l'énergie <b>primaire</b> du DPE (qui compte aussi les pertes de production de l'électricité).</li>
+      </ul>
+
+      <h2>5. La puissance au jour le plus froid</h2>
+      <div class="formule">P (W) = H (W/K) × (T intérieure − T de base)</div>
+      <p>La <b>température de base</b> est la température extérieure de référence la plus froide du lieu (elle dépend du département et de l'altitude, voir l'annexe nationale de NF EN 12831). Cette puissance sert à <b>dimensionner</b> le chauffage. Elle ne dit rien de la consommation sur l'année : c'est le rôle des DJU.</p>
+
+      <h2>6. Exemple refait à la main</h2>
+      <p>Les ponts thermiques de l'exemple de l'outil Ponts thermiques : H = 76 W/K. Bâtiment d'exemple : DJU 2 000, chaudière gaz à 85 %, gaz à 0,11 €/kWh, 19 °C dedans, −7 °C de température de base.</p>
+      <div class="formule">Besoin          = 76 × 2 000 × 24 / 1000 = 3 648 kWh/an
+Énergie finale  = 3 648 / 0,85           = 4 292 kWh de gaz/an
+Coût            = 4 292 × 0,11           ≈ 472 €/an
+Puissance       = 76 × (19 − (−7))       = 1 976 W ≈ 2,0 kW
+
+Et pour 1 seul W/K : 48 kWh de besoin → 56,5 kWh de gaz → 6,21 €/an</div>
+      <p>La dernière ligne est un bon réflexe : <b>« chaque W/K coûte environ 6 € par an ici »</b>. Un nez de dalle de 60 m à 0,90 W/(m·K) fait 54 W/K, soit environ 335 €/an.</p>
+
+      <h2>7. Les consommations de l'état initial</h2>
+      <ul>
+        <li>Source idéale : les <b>factures</b> des 3 dernières années (moyenne), énergie par énergie. Sinon la STD de l'état initial.</li>
+        <li>Le chiffrage s'en sert comme point de départ : gain d'un scénario = consommation avant − consommation après.</li>
+        <li>Le ratio <b>kWh/m²/an</b> permet de situer le bâtiment par rapport à d'autres du même usage.</li>
+      </ul>
+
+      <h2>8. Limites connues (H)</h2>
+      <ul>
+        <li><b>(H)</b> La méthode des DJU est simple : elle ignore l'intermittence (bâtiment fermé la nuit et le week-end), l'inertie et les apports solaires réels. En tertiaire, elle a tendance à <b>surestimer</b> les kWh. Ta STD Pléiades est plus juste.</li>
+        <li><b>(H)</b> Les DJU d'une année donnée ne sont pas ceux d'une année « normale ». Pour comparer à des factures, utilise les DJU des mêmes années.</li>
+        <li><b>(H)</b> Un seul rendement global pour toute l'année et un seul prix par énergie (pas d'abonnement, pas de tarif heures pleines/creuses).</li>
+        <li><b>(H)</b> Les prix des énergies bougent : note toujours le mois et la source.</li>
+      </ul>
+
+      <h2>9. Où est le code</h2>
+      <ul>
+        <li><code>outils/batiment/calcul.js</code> : les formules ci-dessus, commentées. Les autres outils les utilisent.</li>
+        <li><code>outils/batiment/interface.js</code> : l'affichage et les boutons (aucun calcul).</li>
+        <li><code>donnees/batiment-exemple.js</code> : le bâtiment et les prix d'exemple (publics).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== ONGLET DONNÉES ===================== -->
+  <section class="panneau" id="onglet-donnees" role="tabpanel" hidden>
+    <div class="carte">
+      <div class="alerte info" id="note-stockage">Tes valeurs restent <b>dans ce navigateur</b>, sur cet appareil.</div>
+      <p class="aide" style="margin:0">Le dossier bâtiment est inclus dans la sauvegarde complète (accueil › Mes données).</p>
+    </div>
+
+    <div class="carte">
+      <div class="carte-titre">
+        <h2>Prix des énergies</h2>
+        <span id="stats-energies" class="aide"></span>
+      </div>
+      <div class="champs" style="margin-bottom:12px">
+        <div class="champ">
+          <label for="base-prix">Les prix sont saisis en</label>
+          <select id="base-prix"><option value="TTC">€ TTC / kWh</option><option value="HT">€ HT / kWh</option></select>
+        </div>
+      </div>
+      <p class="aide" style="margin:-4px 0 12px">Le temps de retour du chiffrage compare le coût des travaux sur la <b>même base</b> (TTC avec TTC, HT avec HT). Client qui récupère la TVA : saisis des prix HT.</p>
+      <div class="defilement">
+        <table class="table-edition">
+          <thead><tr><th>Énergie</th><th class="num">Prix (€/kWh)</th><th>Mois</th><th>Source</th><th>Statut</th><th></th></tr></thead>
+          <tbody id="corps-energies"></tbody>
+        </table>
+      </div>
+      <div class="barre-boutons" style="margin-top:12px">
+        <button type="button" class="bouton" id="btn-nouvelle-energie">+ Ajouter une énergie</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="pied">
+  Outil personnel d'aide à l'audit énergétique. La méthode des degrés-jours donne des ordres de grandeur ; la STD reste la référence.
+</footer>
+
+<script src="../../commun/commun.js"></script>
+<script src="../../donnees/batiment-exemple.js"></script>
+<script src="calcul.js"></script>
+<script src="interface.js"></script>
+</body>
+</html>
