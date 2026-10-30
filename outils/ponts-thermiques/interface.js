@@ -10,6 +10,7 @@
 
   const C = window.PontsCalcul;
   const S = window.PontsSchemas;
+  const B = window.BatimentCalcul;
   const EXEMPLE = window.PONTS_EXEMPLE;
   const esc = BAO.echapper;
   const nb = BAO.nombre;
@@ -28,6 +29,9 @@
      ÉTAT
      ========================================================== */
   let biblio = chargerBiblio();
+  // Le dossier bâtiment (DJU, chauffage, prix de l'énergie) est partagé par les outils.
+  const batiment = BAO.lireBatiment();
+  const energies = BAO.lireEnergies();
   let projet = normaliserProjet(BAO.lire(CLES.projet, null));
   const detailsOuverts = new Set();
   const mesCalculs = BAO.calculsEnregistres({
@@ -65,7 +69,8 @@
       nom: 'Nouveau calcul',
       hParois: '',
       lignes: [],
-      selection: { liaison: 'plancher-inter', isolation: 'ITI', valeurId: 'pi-iti' }
+      selection: { liaison: 'plancher-inter', isolation: 'ITI', valeurId: 'pi-iti' },
+      batiment: batiment.nom
     };
   }
 
@@ -307,6 +312,27 @@
       'Part    = ' + nb(res.hPonts.valeur, 1) + ' / ' + (res.hParois > 0 ? nb(res.hTotal.valeur, 1) + ' = ' + pct(p.valeur) : '?') + '\n' +
       'Fourchette : ψ ± ' + nb(res.incertitude * 100) + ' % (H)</div>';
 
+    // Les ponts thermiques en kWh, en € et en puissance, avec le dossier bâtiment.
+    const en = enEnergie(res);
+    const c = batiment.climat;
+    if (en) {
+      html += '<h3 style="margin:16px 0 4px">En énergie et en euros</h3>' +
+        '<div class="resultat-ligne"><span>Besoin de chauffage</span><span>' + fourchetteEn(en, 'besoin') + ' kWh/an</span></div>' +
+        '<div class="resultat-ligne"><span>' + esc(en.energie.nom) + ' acheté</span><span>' + fourchetteEn(en, 'finale') + ' kWh/an</span></div>' +
+        '<div class="resultat-total"><span>Coût</span><span>' + fourchetteEn(en, 'euros') + ' € ' + energies.base + '/an</span></div>' +
+        '<div class="resultat-ligne"><span>Puissance à ' + nb(Number(c.tbase)) + ' °C</span><span>≈ ' + nb(en.puissance / 1000, 1) + ' kW</span></div>' +
+        '<div class="formule">Valeur centrale :\n' +
+        nb(res.hPonts.valeur, 1) + ' W/K × ' + nb(Number(c.dju)) + ' DJU × 24 / 1000 = ' + nb(en.valeur.besoin) + ' kWh\n' +
+        nb(en.valeur.besoin) + ' / ' + nb(Number(batiment.chauffage.rendement) / 100, 2) + ' = ' + nb(en.valeur.finale) + ' kWh\n' +
+        nb(en.valeur.finale) + ' × ' + nb(Number(en.energie.prix), 3) + ' €/kWh = ' + nb(en.valeur.euros) + ' €\n' +
+        'P = ' + nb(res.hPonts.valeur, 1) + ' × (' + nb(Number(c.ti)) + ' − (' + nb(Number(c.tbase)) + ')) = ' + nb(en.puissance) + ' W</div>';
+      const exemples = [[c.djuStatut, 'DJU'], [c.tbaseStatut, 'température de base'], [batiment.chauffage.rendementStatut, 'rendement'],
+        [en.energie.statut, 'prix du ' + en.energie.nom.toLowerCase()]].filter(function (x) { return x[0] !== 'valide'; });
+      if (exemples.length) alertes.push('Dossier bâtiment encore en exemple : ' + exemples.map(function (x) { return x[1]; }).join(', ') + '.');
+    } else {
+      html += '<p class="aide" style="margin-top:12px">Complète le <a href="../batiment/index.html">dossier bâtiment</a> (DJU, rendement, énergie de chauffage) pour voir les kWh et les €.</p>';
+    }
+
     if (alertes.length) {
       html += '<div class="alerte attention" style="margin:12px 0 0"><b>À vérifier avant un rapport :</b>' +
         '<ul style="margin:6px 0 0 18px; padding:0">' + alertes.map(function (a) { return '<li>' + esc(a) + '</li>'; }).join('') + '</ul></div>';
@@ -322,6 +348,14 @@
     $('#resultats').innerHTML = html;
   }
 
+  // H des ponts thermiques → kWh, € et puissance (null si le dossier bâtiment est incomplet).
+  function enEnergie(res) {
+    if (!(Number(batiment.climat.dju) > 0)) return null;
+    const en = B.enEnergie(res.hPonts, batiment, energies);
+    return en.energie && en.valeur.euros !== null ? en : null;
+  }
+  function fourchetteEn(en, cle) { return nb(en.bas[cle]) + ' – ' + nb(en.haut[cle]); }
+
   /* ==========================================================
      EXPORTS (Word, Excel)
      ========================================================== */
@@ -335,6 +369,11 @@
     if (res.hParois > 0) {
       totaux.push(['Parois Σ U × A', nb(res.hParois) + ' W/K', true]);
       totaux.push(['Part des ponts thermiques', nb(res.part.bas * 100) + ' – ' + nb(res.part.haut * 100) + ' %', true]);
+    }
+    const en = enEnergie(res);
+    if (en) {
+      totaux.push(['Besoin de chauffage dû aux ponts thermiques (DJU ' + nb(Number(batiment.climat.dju)) + ')', fourchetteEn(en, 'besoin') + ' kWh/an', false]);
+      totaux.push(['Coût (' + en.energie.nom.toLowerCase() + ', rendement ' + nb(Number(batiment.chauffage.rendement)) + ' %)', fourchetteEn(en, 'euros') + ' € ' + energies.base + '/an', true]);
     }
     BAO.copierPourWord(BAO.tableauWord(
       [{ titre: 'Liaison' }, { titre: 'Repère' }, { titre: 'ψ (W/m.K)', droite: true }, { titre: 'L (m)', droite: true }, { titre: 'ψ × L (W/K)', droite: true }],
@@ -359,6 +398,11 @@
     });
     lignes.push('');
     lignes.push([cel('Total ponts thermiques'), '', '', '', '', '', n2(res.hPonts.valeur), n2(res.hPonts.bas), n2(res.hPonts.haut), '', ''].join(';'));
+    const en = enEnergie(res);
+    if (en) {
+      lignes.push([cel('Besoin de chauffage (kWh/an)'), '', '', '', '', '', n2(en.valeur.besoin), n2(en.bas.besoin), n2(en.haut.besoin), '', ''].join(';'));
+      lignes.push([cel('Coût (€ ' + energies.base + '/an)'), '', '', '', '', '', n2(en.valeur.euros), n2(en.bas.euros), n2(en.haut.euros), '', ''].join(';'));
+    }
     if (res.hParois > 0) {
       lignes.push([cel('Parois Σ U × A'), '', '', '', '', '', n2(res.hParois), '', '', '', ''].join(';'));
       lignes.push([cel('Part des ponts thermiques (%)'), '', '', '', '', '', n2(res.part.valeur * 100), n2(res.part.bas * 100), n2(res.part.haut * 100), '', ''].join(';'));
@@ -562,7 +606,16 @@
   /* ==========================================================
      RENDU GLOBAL
      ========================================================== */
+  function renderResume() {
+    BAO.resumeBatiment($('#resume-batiment'), '../batiment/index.html', projet.batiment, function (nom) {
+      projet.batiment = nom;
+      sauverProjet();
+      renderResume();
+    });
+  }
+
   function renderTout() {
+    renderResume();
     $('#nom-projet').value = projet.nom || '';
     $('#h-parois').value = projet.hParois === '' || projet.hParois === undefined ? '' : String(projet.hParois).replace('.', ',');
     renderChoix();

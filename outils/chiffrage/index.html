@@ -7,6 +7,13 @@
   <meta name="description" content="Estimation du coût des travaux de rénovation énergétique à partir de ratios personnels, actualisés avec l'indice BT01.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c4501b'/%3E%3Cpath d='M9 22h14M11 22V12l5-4 5 4v10' stroke='white' stroke-width='2.4' fill='none' stroke-linejoin='round' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="../../commun/style.css">
+  <style>
+    /* Comparaison des scénarios : une petite fiche par scénario */
+    .comparaison-scenario { padding: 8px 0 6px; border-top: 1px solid var(--bord); }
+    .comparaison-scenario .nom { font-weight: 650; }
+    .comparaison-scenario.actif .nom { color: var(--accent); }
+    .comparaison-scenario .resultat-ligne { border-bottom: 0; padding: 2px 0; font-size: .88rem; }
+  </style>
 </head>
 <body>
 
@@ -33,6 +40,7 @@
 
   <!-- ===================== ONGLET CALCUL ===================== -->
   <section class="panneau" id="onglet-calcul" role="tabpanel">
+    <div class="carte pas-impression" id="resume-batiment" style="padding:10px 16px"></div>
     <div class="grille-2">
       <div>
         <div class="carte">
@@ -62,8 +70,17 @@
 
         <div class="carte">
           <div class="carte-titre">
-            <h2>Les postes</h2>
+            <h2>Les scénarios et leurs postes</h2>
             <span class="aide">Quantités issues de ton relevé ou de ton métré</span>
+          </div>
+          <div class="choix-scenarios pas-impression" id="choix-scenarios" role="group" aria-label="Scénarios"></div>
+          <div class="barre-boutons" style="margin:10px 0 14px">
+            <div class="champ" style="flex:1 1 220px">
+              <label for="nom-scenario">Nom du scénario</label>
+              <input type="text" id="nom-scenario" placeholder="ex. Scénario 1 — enveloppe" autocomplete="off">
+            </div>
+            <button type="button" class="bouton pas-impression" id="btn-dupliquer-scenario" style="align-self:flex-end" title="Copie ce scénario et ses postes (ex. scénario 2 = scénario 1 + PAC)">Dupliquer</button>
+            <button type="button" class="bouton discret danger pas-impression" id="btn-supprimer-scenario" style="align-self:flex-end">Supprimer</button>
           </div>
           <div class="defilement">
             <table class="table-lignes">
@@ -83,6 +100,32 @@
           <div class="barre-boutons pas-impression" style="margin-top:14px">
             <select id="ajout-poste" aria-label="Poste à ajouter" style="flex:1 1 260px; max-width:420px"></select>
             <button type="button" class="bouton principal" id="btn-ajouter">+ Ajouter le poste</button>
+          </div>
+        </div>
+
+        <div class="carte">
+          <div class="carte-titre">
+            <h2>Gains du scénario</h2>
+            <span class="aide">kWh d'énergie finale par an, sortis de ta STD ou de ton calcul</span>
+          </div>
+          <div class="defilement">
+            <table class="table-gains">
+              <thead>
+                <tr>
+                  <th>Énergie</th>
+                  <th class="num">Avant (kWh/an)</th>
+                  <th class="num">Après (kWh/an)</th>
+                  <th class="num">Gain (kWh/an)</th>
+                  <th class="num">Économie (€/an)</th>
+                </tr>
+              </thead>
+              <tbody id="corps-gains"></tbody>
+            </table>
+          </div>
+          <p class="aide" style="margin:8px 0 12px">« Avant » vient du dossier bâtiment (consommations de l'état initial). « Après » vide = consommation inchangée. Une énergie peut augmenter (gaz → PAC : plus d'électricité).</p>
+          <div class="champ">
+            <label for="source-gains">Source des consommations après travaux</label>
+            <input type="text" id="source-gains" placeholder="ex. STD Pléiades, scénario 1 (oct. 2026)" autocomplete="off">
           </div>
         </div>
 
@@ -117,6 +160,7 @@
 
       <aside class="collant">
         <div class="carte" id="resultats" aria-live="polite"></div>
+        <div class="carte" id="comparaison"></div>
 
         <div class="carte pas-impression">
           <h3>Mes chiffrages</h3>
@@ -179,7 +223,25 @@ Affiché (arrondi)    = 48 100 – 76 100 € HT</div>
       <h2>4. Pourquoi une fourchette et un arrondi</h2>
       <p>Au stade de l'audit, il n'y a ni plans d'exécution, ni consultation des entreprises : l'incertitude est de l'ordre de ±20 à 30 % <b>(H)</b> (ordre de grandeur d'usage en estimation au stade esquisse/diagnostic, à confirmer avec tes propres retours de chantier). Annoncer « 48 093 € » donne une fausse impression de précision. La fourchette montre l'incertitude, l'arrondi évite les faux chiffres significatifs. Le calcul, lui, garde tous les chiffres : seul l'affichage est arrondi.</p>
 
-      <h2>5. Comment construire tes ratios</h2>
+      <h2>5. Scénarios, gains et temps de retour</h2>
+      <p>Un audit propose des <b>scénarios</b> (ex. « Scénario 1 — enveloppe », « Scénario 2 — enveloppe + PAC »). Chaque scénario a ses postes et son coût. Les scénarios ne s'additionnent pas : ce sont des <b>alternatives</b>, qu'on compare.</p>
+      <div class="formule">Gain (kWh/an)            = consommation avant − consommation après   (énergie par énergie)
+Économie (€/an)          = somme des gains × prix de chaque énergie
+Temps de retour brut     = coût des travaux / économie annuelle       (années)</div>
+      <ul>
+        <li><b>Avant</b> : les consommations de l'état initial, saisies une fois dans le <a href="../batiment/index.html">dossier bâtiment</a> (factures ou STD).</li>
+        <li><b>Après</b> : ce que donne ta STD Pléiades pour le scénario. Les gains ne s'additionnent pas poste par poste (isoler les murs change ce que rapporte la nouvelle chaudière) : c'est pour ça qu'on saisit le résultat du scénario entier.</li>
+        <li><b>Énergie qui change</b> : passer du gaz à une PAC fait baisser le gaz et <b>monter</b> l'électricité. L'économie en € tient compte des deux, chacune à son prix.</li>
+        <li><b>Même base</b> : coût TTC avec des prix d'énergie TTC, ou HT avec HT (réglage dans le dossier bâtiment). Une fourchette de coût donne une fourchette de temps de retour.</li>
+      </ul>
+      <p>Exemple : le scénario « ITE » ci-dessus (complexité 3, site occupé), avec MOE 10 %, aléas 5 %, TVA 20 %. Bâtiment d'exemple au gaz : 150 000 kWh/an avant, 120 000 après (STD).</p>
+      <div class="formule">Coût TTC        = 48 093 × 1,15 × 1,20 = 66 368 €   →   76 147 × 1,15 × 1,20 = 105 083 €
+Gain            = 150 000 − 120 000    = 30 000 kWh/an (−16 % de la consommation totale de 190 000)
+Économie        = 30 000 × 0,11        = 3 300 € TTC/an
+Temps de retour = 66 368 / 3 300 = 20 ans   →   105 083 / 3 300 = 32 ans</div>
+      <p>Ce que ça raconte : une ITE seule se rentabilise lentement sur la seule facture. Elle se justifie aussi par le confort, la valeur du bâtiment et l'entretien de la façade. C'est un argument à écrire dans la fiche.</p>
+
+      <h2>6. Comment construire tes ratios</h2>
       <ul>
         <li><b>Sources, de la plus fiable à la moins fiable</b> : devis et offres reçus sur tes projets → DPGF de chantiers réels → chiffrages d'économistes → bases de prix (payantes) → ordres de grandeur publiés.</li>
         <li><b>Un ratio = une source + une date.</b> Sans date, impossible d'actualiser ; sans source, impossible de défendre le chiffre devant un client.</li>
@@ -187,21 +249,24 @@ Affiché (arrondi)    = 48 100 – 76 100 € HT</div>
         <li>Quand un chantier se termine, compare le coût réel à ton estimation : c'est comme ça que tes ratios deviennent meilleurs que ceux des autres.</li>
       </ul>
 
-      <h2>6. Limites connues (H)</h2>
+      <h2>7. Limites connues (H)</h2>
       <ul>
         <li><b>(H)</b> Les coefficients se multiplient : un chantier « très contraint + site occupé + maison » cumule ×1,35 × 1,10 × 1,10 ≈ ×1,63. C'est voulu, mais à surveiller sur les cas extrêmes.</li>
         <li><b>(H)</b> Le même coefficient s'applique à tous les postes. En réalité, la hauteur pénalise plus une ITE qu'un remplacement de chaudière. Piste V2 : coefficients par catégorie.</li>
         <li><b>(H)</b> Pas d'effet de quantité : 20 m² et 2 000 m² ont le même prix unitaire. Piste V2 : prix dégressifs par tranche.</li>
         <li><b>(H)</b> Le BT01 est un indice moyen « tous corps d'état ». Il existe des indices par corps d'état (ex. BT40 chauffage central, BT41 ventilation, BT47 électricité) et un indice rénovation-entretien (BT50), à vérifier. Piste V2 : un indice par catégorie.</li>
         <li><b>(H)</b> Pas de coefficient géographique (Paris ≠ Pyrénées-Orientales). Piste V2.</li>
+        <li><b>(H)</b> Temps de retour <b>brut</b> : pas d'évolution du prix de l'énergie, pas d'actualisation de l'argent, pas d'aides (CEE…), pas de coût d'entretien, pas de durée de vie des équipements. C'est un indicateur de comparaison entre scénarios, pas une étude financière.</li>
+        <li><b>(H)</b> Un seul prix par énergie (pas d'abonnement ni de tarif horaire).</li>
       </ul>
 
-      <h2>7. Où est le code</h2>
+      <h2>8. Où est le code</h2>
       <ul>
         <li><code>outils/chiffrage/calcul.js</code> : <b>tout le calcul</b>, commenté en français. Si tu veux vérifier une formule, c'est là.</li>
         <li><code>outils/chiffrage/interface.js</code> : l'affichage et les boutons (aucun calcul).</li>
         <li><code>donnees/chiffrage-exemple.js</code> : les ratios d'exemple (publics).</li>
         <li><code>donnees/bt01.js</code> : les valeurs de l'indice BT01.</li>
+        <li><code>outils/batiment/</code> : le dossier bâtiment (consommations de l'état initial, prix des énergies).</li>
       </ul>
     </div>
   </section>
@@ -338,6 +403,8 @@ Affiché (arrondi)    = 48 100 – 76 100 € HT</div>
 <script src="../../commun/commun.js"></script>
 <script src="../../donnees/bt01.js"></script>
 <script src="../../donnees/chiffrage-exemple.js"></script>
+<script src="../../donnees/batiment-exemple.js"></script>
+<script src="../batiment/calcul.js"></script>
 <script src="calcul.js"></script>
 <script src="interface.js"></script>
 </body>

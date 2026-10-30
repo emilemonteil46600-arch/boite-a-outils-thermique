@@ -10,6 +10,7 @@ const { RACINE, charger } = require('./aide-tests.js');
 charger('donnees/bt01.js');
 charger('donnees/chiffrage-exemple.js');
 charger('donnees/ponts-thermiques-exemple.js');
+charger('donnees/batiment-exemple.js');
 const BT01 = window.BT01.valeurs;
 const CH = window.CHIFFRAGE_EXEMPLE;
 const PT = window.PONTS_EXEMPLE;
@@ -60,6 +61,28 @@ test('Ponts thermiques : chaque liaison a un cas standard pour ITI, ITE et ITR',
       const ok = PT.valeurs.some(function (v) { return v.liaison === l.id && v.isolation === i.id && v.variante === 'standard'; });
       assert.ok(ok, l.id + ' / ' + i.id + ' : pas de cas standard');
     });
+  });
+});
+
+test('Dossier bâtiment : chaque prix d\'énergie a une source, un mois et un statut ; le bâtiment d\'exemple est complet', function () {
+  const E = window.BATIMENT_EXEMPLE;
+  assert.ok(['TTC', 'HT'].indexOf(E.energies.base) !== -1);
+  assert.ok(sansDoublon(E.energies.liste.map(function (e) { return e.id; })), 'énergies en double');
+  E.energies.liste.forEach(function (e) {
+    assert.ok(e.prix > 0 && e.prix < 2, e.id + ' : prix hors de la plage plausible');
+    assert.ok(e.source && e.source.trim(), e.id + ' : source manquante');
+    assert.match(e.dateRef, /^\d{4}-\d{2}$/, e.id + ' : mois manquant');
+    assert.ok(STATUTS.indexOf(e.statut) !== -1, e.id + ' : statut inconnu');
+  });
+  const b = E.batiment;
+  [['climat', 'dju'], ['climat', 'ti'], ['climat', 'tbase'], ['chauffage', 'rendement']].forEach(function (x) {
+    assert.ok(isFinite(b[x[0]][x[1]]), x[1] + ' manquant');
+    assert.ok(b[x[0]][x[1] + 'Source'], x[1] + ' : source manquante');
+    assert.ok(STATUTS.indexOf(b[x[0]][x[1] + 'Statut']) !== -1, x[1] + ' : statut inconnu');
+  });
+  assert.ok(E.energies.liste.some(function (e) { return e.id === b.chauffage.energie; }), 'énergie de chauffage inconnue');
+  Object.keys(b.consommations.valeurs).forEach(function (id) {
+    assert.ok(E.energies.liste.some(function (e) { return e.id === id; }), 'consommation d\'une énergie inconnue : ' + id);
   });
 });
 

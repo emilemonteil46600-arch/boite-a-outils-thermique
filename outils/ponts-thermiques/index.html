@@ -60,6 +60,7 @@
 
   <!-- ===================== ONGLET CALCUL ===================== -->
   <section class="panneau" id="onglet-calcul" role="tabpanel">
+    <div class="carte pas-impression" id="resume-batiment" style="padding:10px 16px"></div>
     <div class="grille-2">
       <div>
         <div class="carte">
@@ -236,11 +237,21 @@ Menuiseries 0,15 × 80 = 12   →   H ponts = 19 W/K   →   part = 19 / 339 = 6
       <p>Ce que ça raconte : l'ITE divise les ponts thermiques par 2 à 4, <b>à condition de soigner les tableaux</b>. Sans retour d'isolant, les fenêtres deviennent le premier pont thermique du bâtiment. C'est une phrase utile dans une fiche préconisation.</p>
       <p class="aide">(H) Pour simplifier, Σ U × A est gardé à 320 W/K dans les trois cas. En vrai, l'ITE améliore aussi le U des murs, donc Σ U × A baisse.</p>
 
-      <h2>6. Comment mesurer les longueurs L</h2>
+      <h2>6. Combien ça coûte par an</h2>
+      <p>Un W/K, c'est abstrait. Le <a href="../batiment/index.html">dossier bâtiment</a> le traduit en kWh et en € avec la méthode des degrés-jours (détail dans sa Méthode) :</p>
+      <div class="formule">Besoin (kWh/an) = Σ ψ × L (W/K) × DJU × 24 / 1000
+Coût (€/an)     = Besoin / rendement du chauffage × prix de l'énergie</div>
+      <p>Avec le bâtiment d'exemple (DJU 2 000, gaz à 0,11 €/kWh, rendement 85 %) :</p>
+      <div class="formule">État actuel (ITI) : 76 W/K × 2 000 × 24 / 1000 = 3 648 kWh/an → 3 648 / 0,85 × 0,11 ≈ 472 €/an
+Après ITE         : 39 W/K × 2 000 × 24 / 1000 = 1 872 kWh/an → 1 872 / 0,85 × 0,11 ≈ 242 €/an
+Économie          : ≈ 230 €/an sur les seuls ponts thermiques</div>
+      <p>Ce que ça raconte : en euros, les ponts thermiques pèsent peu face au coût d'une ITE. Les traiter se justifie surtout par le <b>confort</b> et la <b>condensation</b> (parois froides, moisissures), et parce que le surcoût est faible quand on fait déjà les travaux <b>(H)</b>.</p>
+
+      <h2>7. Comment mesurer les longueurs L</h2>
       <ul id="liste-mesures"></ul>
       <p class="aide">(H) Les ψ des règles Th-U sont en <b>dimensions intérieures</b> : mesure les longueurs côté intérieur, comme pour les surfaces A.</p>
 
-      <h2>7. D'où viennent les valeurs</h2>
+      <h2>8. D'où viennent les valeurs</h2>
       <ul>
         <li><b>Le vrai calcul est en 2D numérique</b> (NF EN ISO 10211) : on découpe le détail en petits morceaux et un logiciel calcule la température en chaque point. Le ψ, c'est ce que le détail perd en plus de deux parois « parfaites ». Ce calcul est fait pour les catalogues et les avis techniques, rarement en audit.</li>
         <li><b>En audit</b>, on utilise des valeurs <b>tabulées</b> : fascicule Th-Bât « Ponts thermiques », avis techniques des rupteurs, valeurs par défaut de NF EN ISO 14683 (assez pénalisantes).</li>
@@ -248,7 +259,7 @@ Menuiseries 0,15 × 80 = 12   →   H ponts = 19 W/K   →   part = 19 / 339 = 6
         <li>Les valeurs de cet outil sont des <b>ordres de grandeur d'exemple</b>. Passe chaque valeur en « validé » quand tu l'as vérifiée dans le fascicule.</li>
       </ul>
 
-      <h2>8. Limites connues (H)</h2>
+      <h2>9. Limites connues (H)</h2>
       <ul>
         <li><b>(H)</b> Une seule valeur par cas, alors qu'en vrai ψ dépend de l'épaisseur d'isolant, de la nature du mur, de l'épaisseur de dalle… Le fascicule Th-Bât donne des tableaux bien plus détaillés.</li>
         <li><b>(H)</b> Menuiserie : une seule valeur moyenne pour l'appui, les tableaux et le linteau. En réalité l'appui est souvent le plus défavorable.</li>
@@ -259,12 +270,13 @@ Menuiseries 0,15 × 80 = 12   →   H ponts = 19 W/K   →   part = 19 / 339 = 6
         <li><b>(H)</b> Les seuils « faible / moyen / fort » sont une convention de lecture, pas une norme.</li>
       </ul>
 
-      <h2>9. Où est le code</h2>
+      <h2>10. Où est le code</h2>
       <ul>
         <li><code>outils/ponts-thermiques/calcul.js</code> : <b>tout le calcul</b>, commenté en français.</li>
         <li><code>outils/ponts-thermiques/schemas.js</code> : les dessins SVG (aucun calcul).</li>
         <li><code>outils/ponts-thermiques/interface.js</code> : l'affichage et les boutons (aucun calcul).</li>
         <li><code>donnees/ponts-thermiques-exemple.js</code> : le catalogue d'exemple et les explications (public).</li>
+        <li><code>outils/batiment/calcul.js</code> : le passage des W/K aux kWh et aux € (partagé avec les autres outils).</li>
       </ul>
     </div>
   </section>
@@ -364,6 +376,8 @@ Menuiseries 0,15 × 80 = 12   →   H ponts = 19 W/K   →   part = 19 / 339 = 6
 
 <script src="../../commun/commun.js"></script>
 <script src="../../donnees/ponts-thermiques-exemple.js"></script>
+<script src="../../donnees/batiment-exemple.js"></script>
+<script src="../batiment/calcul.js"></script>
 <script src="calcul.js"></script>
 <script src="schemas.js"></script>
 <script src="interface.js"></script>
