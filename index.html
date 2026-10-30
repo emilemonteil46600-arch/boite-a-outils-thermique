@@ -52,13 +52,18 @@
     </div>
   </div>
 
+  <div class="carte" id="mes-donnees">
+    <h2>Mes données</h2>
+    <p>Tes ratios et tes calculs sont enregistrés dans ce navigateur, sur cet appareil.</p>
+  </div>
+
   <div class="carte">
     <h2>Les règles de la boîte à outils</h2>
     <div class="principes">
       <div class="principe"><b>Calcul · Méthode · Données</b><span>Chaque outil a ces trois onglets : le résultat, les formules expliquées, et les valeurs modifiables.</span></div>
       <div class="principe"><b>Aucun chiffre sans source</b><span>Chaque ratio porte une source et une date. Tant qu'il n'est pas validé, l'outil le signale.</span></div>
       <div class="principe"><b>Hypothèses marquées (H)</b><span>Les simplifications et les limites de chaque méthode sont écrites, pas cachées.</span></div>
-      <div class="principe"><b>Données personnelles en local</b><span>Les ratios personnels restent dans le navigateur. Export / import JSON pour les sauvegarder.</span></div>
+      <div class="principe"><b>Données personnelles en local</b><span>Les ratios personnels restent dans le navigateur. Une sauvegarde complète (fichier JSON) les protège et les transporte d'un appareil à l'autre.</span></div>
     </div>
   </div>
 </main>
@@ -67,5 +72,7 @@
   Outils personnels d'aide à l'audit énergétique. Les résultats sont des estimations à vérifier, pas des études réglementaires.
 </footer>
 
+<script src="commun/commun.js"></script>
+<script>BAO.carteDonnees(document.getElementById('mes-donnees'));</script>
 </body>
 </html>

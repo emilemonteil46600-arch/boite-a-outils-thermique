@@ -89,7 +89,7 @@ window.PONTS_EXEMPLE = {
 
   // Pourquoi la valeur est forte ou faible (texte affiché sous le schéma).
   explications: {
-    "pi-iti":        "La dalle béton traverse tout le mur et coupe le doublage isolant. Le béton conduit environ 50 fois mieux la chaleur qu'un isolant : la chaleur de l'étage file dans la dalle et sort par le nez de dalle, côté froid. C'est le pont thermique le plus fort d'un bâtiment isolé par l'intérieur.",
+    "pi-iti":        "La dalle béton traverse tout le mur et coupe le doublage isolant. Le béton armé conduit 50 à 70 fois mieux la chaleur qu'un isolant (λ 2,3 contre 0,032 à 0,040 W/(m·K), voir Méthode) : la chaleur de l'étage file dans la dalle et sort par le nez de dalle, côté froid. C'est le pont thermique le plus fort d'un bâtiment isolé par l'intérieur.",
     "pi-iti-rupt":   "Un rupteur est un bloc d'isolant (avec des aciers pour tenir la dalle) placé entre la dalle et le mur, dans le plan de l'isolant. Il « referme » en grande partie la coupure : il ne reste que les aciers et les zones de béton entre rupteurs. ψ est divisé par 3 à 4 environ.",
     "pi-ite":        "L'isolant passe devant le nez de dalle sans interruption : la dalle reste entièrement côté chaud. Il n'y a presque plus de chemin facile pour la chaleur. C'est le grand avantage de l'ITE.",
     "pi-itr":        "Le mur isolant (brique alvéolaire, béton cellulaire) est interrompu par la dalle béton qui vient s'appuyer dessus. Le nez de dalle n'est protégé que par une fine planelle : la dalle fait « court-circuit » à travers le mur isolant.",

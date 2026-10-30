@@ -29,8 +29,20 @@
      ========================================================== */
   let biblio = chargerBiblio();
   let projet = normaliserProjet(BAO.lire(CLES.projet, null));
-  let projets = BAO.lire(CLES.projets, {}) || {};
   const detailsOuverts = new Set();
+  const mesCalculs = BAO.calculsEnregistres({
+    cle: CLES.projets,
+    mot: 'calcul',
+    courant: function () { return projet; },
+    charger: function (p) {
+      projet = normaliserProjet(p);
+      detailsOuverts.clear();
+      sauverProjet();
+      renderTout();
+    },
+    vide: projetVide,
+    estVide: function () { return !projet.lignes.length; }
+  });
 
   // Ta bibliothèque gagne ; les nouvelles valeurs d'exemple (ajoutées dans une
   // version future du fichier public) sont ajoutées sans écraser les tiennes.
@@ -69,7 +81,6 @@
   function calculer() { return C.calculerProjet(projet, biblio); }
   function sauverProjet() { BAO.ecrire(CLES.projet, projet); }
   function sauverBiblio() { BAO.ecrire(CLES.biblio, biblio); }
-  function sauverProjets() { BAO.ecrire(CLES.projets, projets); }
 
   /* ==========================================================
      PETITS OUTILS D'AFFICHAGE
@@ -79,11 +90,7 @@
   function seuils() { return biblio.reglages.seuils; }
   function niveau(psi) { return C.niveauPsi(psi, seuils()); }
 
-  function badgeStatut(statut) {
-    return statut === 'valide'
-      ? '<span class="badge valide">validé</span>'
-      : '<span class="badge exemple">exemple à valider</span>';
-  }
+  const badgeStatut = BAO.badgeStatut;
   function badgeNiveau(psi) {
     const n = niveau(psi);
     return '<span class="badge niv-' + n + '">' + NIVEAUX[n] + '</span>';
@@ -92,7 +99,8 @@
   function pct(v) { return v === null || v === undefined ? '–' : nb(v * 100) + ' %'; }
 
   // Les dessins existent pour « standard » et « traite » ; une variante perso
-  // est dessinée comme le cas standard.
+  // est dessinée comme le cas standard (et l'outil le dit sous le schéma).
+  function estPerso(v) { return v.variante !== 'standard' && v.variante !== 'traite'; }
   function varianteDessin(v) { return v.variante === 'traite' ? 'traite' : 'standard'; }
 
   function libelleValeur(v) {
@@ -147,6 +155,7 @@
     const v = valeurChoisie();
     const l = liaison(sel.liaison);
 
+    $('#note-schema').hidden = !(v && estPerso(v));
     if (!v) {
       $('#schema').innerHTML = '';
       $('#fiche-valeur').innerHTML = '<p class="muet">Aucune valeur de ψ pour ce cas. Ajoute une variante dans l\'onglet Données.</p>';
@@ -318,46 +327,24 @@
      ========================================================== */
   function copierPourWord() {
     const res = calculer();
-    const bord = 'border:1px solid #9a9a9a;padding:4px 7px;';
-    const entete = bord + 'background:#e9e6df;font-weight:bold;';
-    const droite = 'text-align:right;white-space:nowrap;';
-
-    let html = '<table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt">' +
-      '<thead><tr><th style="' + entete + 'text-align:left">Liaison</th><th style="' + entete + 'text-align:left">Repère</th>' +
-      '<th style="' + entete + droite + '">ψ (W/m.K)</th><th style="' + entete + droite + '">L (m)</th>' +
-      '<th style="' + entete + droite + '">ψ × L (W/K)</th></tr></thead><tbody>';
-    const texte = ['Liaison\tRepère\tψ (W/m.K)\tL (m)\tψ × L (W/K)'];
-
-    res.lignes.forEach(function (l) {
-      if (l.erreur) return;
-      const nom = liaison(l.valeur.liaison).nom + ' — ' + libelleValeur(l.valeur);
-      html += '<tr><td style="' + bord + '">' + esc(nom) + '</td><td style="' + bord + '">' + esc(l.ligne.repere || '') + '</td>' +
-        '<td style="' + bord + droite + '">' + psiTexte(l.psi) + '</td><td style="' + bord + droite + '">' + nb(l.longueur, 1) + '</td>' +
-        '<td style="' + bord + droite + '">' + nb(l.h, 1) + '</td></tr>';
-      texte.push(nom + '\t' + (l.ligne.repere || '') + '\t' + psiTexte(l.psi) + '\t' + nb(l.longueur, 1) + '\t' + nb(l.h, 1));
+    const lignes = res.lignes.filter(function (l) { return !l.erreur; }).map(function (l) {
+      return [liaison(l.valeur.liaison).nom + ' — ' + libelleValeur(l.valeur), l.ligne.repere || '',
+        psiTexte(l.psi), nb(l.longueur, 1), nb(l.h, 1)];
     });
-
-    const totaux = [['Total ponts thermiques Σ ψ × L', nb(res.hPonts.valeur) + ' W/K (' + fourchetteH(res.hPonts) + ')']];
+    const totaux = [['Total ponts thermiques Σ ψ × L', nb(res.hPonts.valeur) + ' W/K (' + fourchetteH(res.hPonts) + ')', true]];
     if (res.hParois > 0) {
-      totaux.push(['Parois Σ U × A', nb(res.hParois) + ' W/K']);
-      totaux.push(['Part des ponts thermiques', nb(res.part.bas * 100) + ' – ' + nb(res.part.haut * 100) + ' %']);
+      totaux.push(['Parois Σ U × A', nb(res.hParois) + ' W/K', true]);
+      totaux.push(['Part des ponts thermiques', nb(res.part.bas * 100) + ' – ' + nb(res.part.haut * 100) + ' %', true]);
     }
-    totaux.forEach(function (t) {
-      html += '<tr><td colspan="4" style="' + bord + 'font-weight:bold;background:#f3f1ec;">' + esc(t[0]) + '</td>' +
-        '<td style="' + bord + droite + 'font-weight:bold;background:#f3f1ec;">' + esc(t[1]) + '</td></tr>';
-      texte.push(t[0] + '\t\t\t\t' + t[1]);
-    });
-    html += '</tbody></table>';
-
-    BAO.copierTableau(html, texte.join('\n')).then(function (ok) {
-      BAO.notifier(ok ? 'Tableau copié : colle-le dans Word (Ctrl+V).' : 'Copie impossible dans ce navigateur.');
-    });
+    BAO.copierPourWord(BAO.tableauWord(
+      [{ titre: 'Liaison' }, { titre: 'Repère' }, { titre: 'ψ (W/m.K)', droite: true }, { titre: 'L (m)', droite: true }, { titre: 'ψ × L (W/K)', droite: true }],
+      lignes, totaux));
   }
 
   function exporterCSV() {
     const res = calculer();
-    const n2 = function (v) { return isFinite(v) ? v.toFixed(2).replace('.', ',') : ''; };
-    const cel = function (t) { return '"' + String(t === undefined || t === null ? '' : t).replace(/"/g, '""') + '"'; };
+    const n2 = function (v) { return BAO.nombreCSV(v, 2); };
+    const cel = BAO.celluleCSV;
     const lignes = [[
       'Liaison', 'Isolant', 'Détail constructif', 'Repère', 'ψ (W/m.K)', 'L (m)', 'ψ × L (W/K)', 'ψ × L bas', 'ψ × L haut', 'Statut', 'Source'
     ].map(cel).join(';')];
@@ -377,58 +364,7 @@
       lignes.push([cel('Part des ponts thermiques (%)'), '', '', '', '', '', n2(res.part.valeur * 100), n2(res.part.bas * 100), n2(res.part.haut * 100), '', ''].join(';'));
     }
 
-    const nom = (projet.nom || 'ponts-thermiques').replace(/[^\w\-àâäéèêëîïôöùûüç ]+/gi, '').trim().replace(/\s+/g, '-') || 'ponts-thermiques';
-    BAO.telecharger(nom + '_' + BAO.dateFichier() + '.csv', '﻿' + lignes.join('\r\n'), 'text/csv;charset=utf-8');
-  }
-
-  /* ==========================================================
-     MES CALCULS (enregistrer / ouvrir)
-     ========================================================== */
-  function renderListeProjets() {
-    const noms = Object.keys(projets).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
-    $('#liste-projets').innerHTML = noms.length
-      ? noms.map(function (n) { return '<option value="' + esc(n) + '"' + (n === projet.nom ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('')
-      : '<option value="">Aucun calcul enregistré</option>';
-  }
-
-  function enregistrerProjet() {
-    const nom = (projet.nom || '').trim();
-    if (!nom) { BAO.notifier('Donne un nom au calcul avant de l\'enregistrer.'); $('#nom-projet').focus(); return; }
-    if (projets[nom] && !confirm('Un calcul « ' + nom + ' » existe déjà. Le remplacer ?')) return;
-    projets[nom] = BAO.cloner(projet);
-    sauverProjets();
-    renderListeProjets();
-    BAO.notifier('Calcul « ' + nom + ' » enregistré.');
-  }
-
-  function ouvrirProjet() {
-    const nom = $('#liste-projets').value;
-    if (!nom || !projets[nom]) return;
-    projet = normaliserProjet(BAO.cloner(projets[nom]));
-    detailsOuverts.clear();
-    sauverProjet();
-    renderTout();
-    BAO.notifier('Calcul « ' + nom + ' » ouvert.');
-  }
-
-  function nouveauProjet() {
-    if (projet.lignes.length && !confirm('Commencer un nouveau calcul ? (Le calcul en cours n\'est gardé que s\'il a été enregistré.)')) return;
-    projet = projetVide();
-    detailsOuverts.clear();
-    sauverProjet();
-    renderTout();
-    $('#nom-projet').focus();
-    $('#nom-projet').select();
-  }
-
-  function supprimerProjet() {
-    const nom = $('#liste-projets').value;
-    if (!nom || !projets[nom]) return;
-    if (!confirm('Supprimer définitivement le calcul enregistré « ' + nom + ' » ?')) return;
-    delete projets[nom];
-    sauverProjets();
-    renderListeProjets();
-    BAO.notifier('Calcul supprimé.');
+    BAO.telechargerCSV(BAO.nomFichier(projet.nom, 'ponts-thermiques') + '_' + BAO.dateFichier() + '.csv', lignes);
   }
 
   /* ==========================================================
@@ -456,12 +392,7 @@
   /* ==========================================================
      ONGLET DONNÉES — valeurs de ψ
      ========================================================== */
-  function estPerso(v) { return v.variante !== 'standard' && v.variante !== 'traite'; }
-
-  function selectStatut(statut, attributs) {
-    return '<select ' + attributs + ' aria-label="Statut"><option value="exemple"' + (statut !== 'valide' ? ' selected' : '') + '>exemple</option>' +
-      '<option value="valide"' + (statut === 'valide' ? ' selected' : '') + '>validé</option></select>';
-  }
+  const selectStatut = BAO.selectStatut;
 
   function renderStats() {
     const total = biblio.valeurs.length;
@@ -589,24 +520,30 @@
       version: 1,
       exporte_le: new Date().toISOString(),
       biblio: biblio,
-      projets: projets,
+      projets: mesCalculs.tous(),
       projetCourant: projet
     };
-    BAO.telecharger('catalogue-ponts-thermiques_' + BAO.dateFichier() + '.json', JSON.stringify(contenu, null, 2), 'application/json');
+    BAO.telechargerJSON('catalogue-ponts-thermiques_' + BAO.dateFichier() + '.json', contenu,
+      [CLES.biblio, CLES.projets, CLES.projet], contenu.exporte_le);
     BAO.notifier('Catalogue exporté. Range le fichier dans un endroit sûr (OneDrive…).');
   }
 
   function importerBibliotheque(fichier) {
     BAO.lireFichierJSON(fichier).then(function (donnees) {
+      // Une sauvegarde complète de la boîte à outils est acceptée aussi.
+      if (donnees && donnees.format === BAO.FORMAT_SAUVEGARDE) {
+        if (BAO.restaurerSauvegarde(donnees)) location.reload();
+        return;
+      }
       if (!donnees || donnees.format !== 'bao-ponts-thermiques' || !donnees.biblio || !Array.isArray(donnees.biblio.valeurs)) {
         throw new Error('Ce fichier n\'est pas un export de l\'outil Ponts thermiques.');
       }
       const n = donnees.biblio.valeurs.length;
       if (!confirm('Importer ' + n + ' valeurs de ψ et remplacer ton catalogue actuel sur cet appareil ?')) return;
       biblio = completerBiblio(donnees.biblio);
-      projets = donnees.projets || {};
+      mesCalculs.remplacerTous(donnees.projets || {});
       if (donnees.projetCourant) projet = normaliserProjet(donnees.projetCourant);
-      sauverBiblio(); sauverProjets(); sauverProjet();
+      sauverBiblio(); sauverProjet();
       renderTout();
       BAO.notifier('Import réussi : ' + n + ' valeurs.');
     }).catch(function (e) {
@@ -630,7 +567,7 @@
     $('#h-parois').value = projet.hParois === '' || projet.hParois === undefined ? '' : String(projet.hParois).replace('.', ',');
     renderChoix();
     renderLignes();
-    renderListeProjets();
+    mesCalculs.rendre();
     renderValeurs();
     renderReglages();
     renderMethode();
@@ -667,8 +604,8 @@
     $('#btn-ajouter').addEventListener('click', function () {
       const v = valeurChoisie();
       if (!v) { BAO.notifier('Aucune valeur de ψ pour ce cas.'); return; }
-      const n = BAO.lireNombre($('#longueur-ajout').value);
-      const ligne = { id: BAO.identifiant('l'), valeurId: v.id, longueur: isFinite(n) && n >= 0 ? n : '', repere: $('#repere-ajout').value.trim() };
+      if (BAO.lireNombre($('#longueur-ajout').value) < 0) { BAO.notifier('Une longueur ne peut pas être négative.'); return; }
+      const ligne = { id: BAO.identifiant('l'), valeurId: v.id, longueur: BAO.lirePositif($('#longueur-ajout').value), repere: $('#repere-ajout').value.trim() };
       projet.lignes.push(ligne);
       sauverProjet();
       $('#longueur-ajout').value = '';
@@ -690,8 +627,8 @@
       const ligne = ligneDe(e.target);
       if (!ligne) return;
       if (e.target.dataset.champ === 'longueur') {
-        const n = BAO.lireNombre(e.target.value);
-        ligne.longueur = isFinite(n) && n >= 0 ? n : '';
+        if (BAO.lireNombre(e.target.value) < 0) BAO.notifier('Une longueur ne peut pas être négative.');
+        ligne.longueur = BAO.lirePositif(e.target.value);
         sauverProjet();
         majCalculs();
       } else if (e.target.dataset.champ === 'repere') {
@@ -717,19 +654,13 @@
         sauverProjet();
         renderLignes();
       } else if (b.dataset.action === 'detail') {
-        if (detailsOuverts.has(id)) detailsOuverts.delete(id); else detailsOuverts.add(id);
-        const ouvert = detailsOuverts.has(id);
-        const d = document.querySelector('tr[data-detail="' + CSS.escape(id) + '"]');
-        if (d) d.hidden = !ouvert;
-        b.setAttribute('aria-expanded', ouvert);
-        b.textContent = (ouvert ? '▾' : '▸') + ' calcul';
+        BAO.basculerDetail(b, id, detailsOuverts);
       }
     });
 
     // --- Parois et nom ---
     $('#h-parois').addEventListener('input', function (e) {
-      const n = BAO.lireNombre(e.target.value);
-      projet.hParois = isFinite(n) && n >= 0 ? n : '';
+      projet.hParois = BAO.lirePositif(e.target.value);
       sauverProjet();
       renderResultats(calculer());
     });
@@ -747,12 +678,6 @@
       if (b.dataset.action === 'export-csv') exporterCSV();
       if (b.dataset.action === 'imprimer') window.print();
     });
-
-    // --- Mes calculs ---
-    $('#btn-enregistrer').addEventListener('click', enregistrerProjet);
-    $('#btn-ouvrir').addEventListener('click', ouvrirProjet);
-    $('#btn-nouveau').addEventListener('click', nouveauProjet);
-    $('#btn-supprimer-projet').addEventListener('click', supprimerProjet);
 
     // --- Données : valeurs ---
     $('#filtre-liaison').addEventListener('change', renderValeurs);
@@ -803,6 +728,8 @@
      DÉMARRAGE
      ========================================================== */
   BAO.initOnglets(CLES.onglet);
+  BAO.noteStockage($('#note-stockage'), '../../index.html');
+  BAO.sectionsRepliables('#onglet-methode .methode');
   brancherEvenements();
   renderTout();
 })();

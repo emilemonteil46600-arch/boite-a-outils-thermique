@@ -61,7 +61,9 @@
 
   function calculerLigne(ligne, biblio, incertitude) {
     const valeur = trouverValeur(biblio, ligne.valeurId);
-    const longueur = Number(ligne.longueur) || 0;
+    // Une longueur vide ou négative n'a pas de sens : elle compte pour 0 (signalé « sans longueur »).
+    const L = Number(ligne.longueur);
+    const longueur = L > 0 ? L : 0;
     if (!valeur) {
       return { ligne: ligne, erreur: "Valeur de ψ introuvable dans le catalogue (supprimée ?)", longueur: longueur, h: 0, hBas: 0, hHaut: 0 };
     }

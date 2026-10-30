@@ -1,40 +1,284 @@
 /* ==========================================================
    Boîte à outils thermique — fonctions partagées par tous les outils
-   (sauvegarde, fichiers, mise en forme des nombres, onglets)
+   (sauvegarde, fichiers, mise en forme des nombres, onglets,
+   statuts exemple / validé, calculs enregistrés)
    ========================================================== */
 (function (global) {
   'use strict';
 
   const BAO = {};
+  const possede = function (objet, cle) { return Object.prototype.hasOwnProperty.call(objet, cle); };
+
+  /* ---------- Tes données personnelles ----------
+     Toutes les clés où la boîte à outils range tes données, outil par outil.
+     ⚠ Ne jamais renommer une clé existante sans migration : tes données seraient perdues.
+     (Les clés « onglet » ne sont pas listées : ce n'est qu'un confort d'affichage.) */
+  BAO.CLES_DONNEES = {
+    'bao.chiffrage.biblio.v1': 'Chiffrage — ta bibliothèque de ratios',
+    'bao.chiffrage.projet.v1': 'Chiffrage — le chiffrage en cours',
+    'bao.chiffrage.projets.v1': 'Chiffrage — tes chiffrages enregistrés',
+    'bao.bt01.perso.v1': 'Indice BT01 — les mois que tu as ajoutés',
+    'bao.ponts.biblio.v1': 'Ponts thermiques — ton catalogue de ψ',
+    'bao.ponts.projet.v1': 'Ponts thermiques — le calcul en cours',
+    'bao.ponts.projets.v1': 'Ponts thermiques — tes calculs enregistrés'
+  };
+
+  // Date de la dernière modification et du dernier export de chaque clé.
+  const CLE_SUIVI = 'bao.sauvegarde.v1';
+  BAO.FORMAT_SAUVEGARDE = 'bao-sauvegarde-complete';
+  // (H) Délai avant de te rappeler de sauvegarder des données modifiées : convention de l'outil.
+  BAO.DELAI_RAPPEL_JOURS = 14;
+  const JOUR = 24 * 3600 * 1000;
 
   /* ---------- Sauvegarde dans le navigateur ----------
      Les données restent sur l'appareil (localStorage).
      Elles ne partent jamais sur GitHub ni ailleurs.
-     Pour passer d'un appareil à l'autre : export / import JSON. */
+     Pour passer d'un appareil à l'autre : sauvegarde complète puis restauration. */
+  function stockage() {
+    try { return global.localStorage || null; } catch (e) { return null; }
+  }
+
   BAO.lire = function (cle, defaut) {
     try {
-      const brut = global.localStorage.getItem(cle);
+      const brut = stockage().getItem(cle);
       return brut === null ? defaut : JSON.parse(brut);
     } catch (e) {
       return defaut;
     }
   };
 
-  BAO.ecrire = function (cle, valeur) {
+  function ecrireBrut(cle, valeur) {
     try {
-      global.localStorage.setItem(cle, JSON.stringify(valeur));
+      stockage().setItem(cle, JSON.stringify(valeur));
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  // Écrit une valeur ; si c'est une de tes données, note la date de modification.
+  BAO.ecrire = function (cle, valeur) {
+    const ok = ecrireBrut(cle, valeur);
+    if (ok && possede(BAO.CLES_DONNEES, cle)) noter('modifs', [cle]);
+    return ok;
   };
 
   BAO.effacer = function (cle) {
-    try { global.localStorage.removeItem(cle); } catch (e) { /* rien */ }
+    try { stockage().removeItem(cle); } catch (e) { /* rien */ }
   };
 
   BAO.cloner = function (objet) {
     return JSON.parse(JSON.stringify(objet));
+  };
+
+  /* ---------- Suivi des sauvegardes ---------- */
+  function lireSuivi() {
+    const s = BAO.lire(CLE_SUIVI, null) || {};
+    return { exports: s.exports || {}, modifs: s.modifs || {} };
+  }
+
+  function noter(type, cles, dateISO) {
+    const s = lireSuivi();
+    const d = dateISO || new Date().toISOString();
+    cles.forEach(function (c) { s[type][c] = d; });
+    ecrireBrut(CLE_SUIVI, s);
+  }
+
+  // À appeler après chaque export : ces données sont maintenant dans un fichier.
+  BAO.noterExport = function (cles, dateISO) { noter('exports', cles, dateISO); };
+
+  // Les clés de données qui existent sur cet appareil.
+  BAO.clesPresentes = function () {
+    const st = stockage();
+    if (!st) return [];
+    return Object.keys(BAO.CLES_DONNEES).filter(function (c) {
+      try { return st.getItem(c) !== null; } catch (e) { return false; }
+    });
+  };
+
+  /* Faut-il te rappeler de sauvegarder ?
+     - une donnée est « non sauvegardée » si elle n'a jamais été exportée,
+       ou si elle a été modifiée après son dernier export ;
+     - on te le rappelle si une donnée non sauvegardée n'a jamais été exportée,
+       ou si son dernier export date de plus de DELAI_RAPPEL_JOURS jours.
+     maintenant : date en millisecondes (Date.now()). */
+  BAO.etatSauvegarde = function (suivi, clesPresentes, maintenant, delaiJours) {
+    const delai = (delaiJours === undefined ? BAO.DELAI_RAPPEL_JOURS : delaiJours) * JOUR;
+    const date = function (iso) { const t = Date.parse(iso); return isFinite(t) ? t : null; };
+    const exports = suivi.exports || {}, modifs = suivi.modifs || {};
+
+    const nonSauvegardees = clesPresentes.filter(function (c) {
+      const exp = date(exports[c]), mod = date(modifs[c]);
+      return exp === null || (mod !== null && mod > exp);
+    });
+    const rappel = nonSauvegardees.some(function (c) {
+      const exp = date(exports[c]);
+      return exp === null || maintenant - exp > delai;
+    });
+    const dates = clesPresentes.map(function (c) { return date(exports[c]); }).filter(function (t) { return t !== null; });
+
+    return {
+      nonSauvegardees: nonSauvegardees,
+      rappel: rappel,
+      derniere: dates.length ? Math.max.apply(null, dates) : null
+    };
+  };
+
+  BAO.etatSauvegardeActuel = function () {
+    return BAO.etatSauvegarde(lireSuivi(), BAO.clesPresentes(), Date.now());
+  };
+
+  // Où sont tes données ? Chaque adresse a son propre stockage.
+  BAO.lieuStockage = function () {
+    const loc = global.location || {};
+    if (loc.protocol === 'file:') return { type: 'fichier', texte: 'un fichier ouvert depuis ton ordinateur (file://)' };
+    if (/github\.io$/.test(loc.hostname || '')) return { type: 'site', texte: 'le site en ligne (' + loc.hostname + ')' };
+    return { type: 'autre', texte: 'l\'adresse ' + (loc.host || 'inconnue') };
+  };
+
+  /* ---------- Sauvegarde complète (toute la boîte à outils) ---------- */
+  BAO.contenuSauvegarde = function () {
+    const donnees = {};
+    BAO.clesPresentes().forEach(function (c) { donnees[c] = BAO.lire(c, null); });
+    return { format: BAO.FORMAT_SAUVEGARDE, version: 1, exporte_le: new Date().toISOString(), donnees: donnees };
+  };
+
+  BAO.telechargerSauvegarde = function () {
+    const contenu = BAO.contenuSauvegarde();
+    const cles = Object.keys(contenu.donnees);
+    if (!cles.length) { BAO.notifier('Rien à sauvegarder : aucune donnée personnelle sur cet appareil.'); return false; }
+    BAO.telechargerJSON('sauvegarde-boite-a-outils_' + BAO.dateFichier() + '.json', contenu, cles, contenu.exporte_le);
+    BAO.notifier('Sauvegarde téléchargée. Range le fichier dans un endroit sûr (OneDrive…).');
+    return true;
+  };
+
+  // Vérifie un fichier de sauvegarde complète ; renvoie les clés connues qu'il contient.
+  BAO.clesDeLaSauvegarde = function (contenu) {
+    if (!contenu || contenu.format !== BAO.FORMAT_SAUVEGARDE || !contenu.donnees || typeof contenu.donnees !== 'object') {
+      throw new Error('Ce fichier n\'est pas une sauvegarde complète de la boîte à outils.');
+    }
+    return Object.keys(contenu.donnees).filter(function (c) { return possede(BAO.CLES_DONNEES, c); });
+  };
+
+  // Remplace les données de cet appareil par celles de la sauvegarde (après confirmation).
+  // Seules les clés connues sont écrites ; les autres données ne sont pas touchées.
+  BAO.restaurerSauvegarde = function (contenu) {
+    const cles = BAO.clesDeLaSauvegarde(contenu);
+    if (!cles.length) throw new Error('Cette sauvegarde ne contient aucune donnée.');
+    const date = isFinite(Date.parse(contenu.exporte_le)) ? contenu.exporte_le : new Date().toISOString();
+    const liste = cles.map(function (c) { return '• ' + BAO.CLES_DONNEES[c]; }).join('\n');
+    if (!global.confirm('Restaurer la sauvegarde du ' + BAO.dateCourte(Date.parse(date)) + ' ?\n\n' +
+      'Elle remplace, sur cet appareil :\n' + liste + '\n\nLes autres données ne sont pas touchées.')) return false;
+    cles.forEach(function (c) { ecrireBrut(c, contenu.donnees[c]); });
+    // Ces données sont identiques au fichier : elles comptent comme sauvegardées à sa date.
+    noter('modifs', cles, date);
+    noter('exports', cles, date);
+    return true;
+  };
+
+  /* ---------- Rappel de sauvegarde (bandeau en haut de chaque page) ---------- */
+  BAO.afficherRappelSauvegarde = function () {
+    const page = document.querySelector('main.page');
+    if (!page || document.querySelector('.rappel-sauvegarde')) return;
+    try { if (global.sessionStorage.getItem('bao.rappel.masque') === '1') return; } catch (e) { /* rien */ }
+    const etat = BAO.etatSauvegardeActuel();
+    if (!etat.rappel) return;
+
+    const bandeau = document.createElement('div');
+    bandeau.className = 'alerte attention rappel-sauvegarde pas-impression';
+    bandeau.setAttribute('role', 'status');
+    bandeau.innerHTML = '<b>Pense à sauvegarder.</b> Tes données (ratios, calculs…) ne sont que dans ce navigateur : ' +
+      'effacer l\'historique ou changer d\'ordinateur les ferait disparaître. ' +
+      (etat.derniere ? 'Dernière sauvegarde : ' + BAO.ilYA(etat.derniere) + '.' : 'Aucune sauvegarde pour l\'instant.') +
+      '<div class="barre-boutons" style="margin-top:8px">' +
+      '<button type="button" class="bouton principal" data-action="sauver">Télécharger une sauvegarde complète</button>' +
+      '<button type="button" class="bouton discret" data-action="plus-tard">Plus tard</button></div>';
+    bandeau.addEventListener('click', function (e) {
+      const b = e.target.closest('[data-action]');
+      if (!b) return;
+      if (b.dataset.action === 'sauver' && !BAO.telechargerSauvegarde()) return;
+      if (b.dataset.action === 'plus-tard') {
+        try { global.sessionStorage.setItem('bao.rappel.masque', '1'); } catch (err) { /* rien */ }
+      }
+      bandeau.remove();
+    });
+    page.insertBefore(bandeau, page.firstChild);
+  };
+
+  /* ---------- Carte « Mes données » (accueil) ---------- */
+  BAO.carteDonnees = function (element) {
+    function rendre() {
+      const suivi = lireSuivi();
+      const presentes = BAO.clesPresentes();
+      const etat = BAO.etatSauvegarde(suivi, presentes, Date.now());
+      const lieu = BAO.lieuStockage();
+
+      let html = '<div class="carte-titre"><h2>Mes données</h2>' +
+        (presentes.length
+          ? (etat.nonSauvegardees.length
+            ? '<span class="badge exemple">' + etat.nonSauvegardees.length + ' élément(s) pas sauvegardé(s)</span>'
+            : '<span class="badge valide">tout est sauvegardé</span>')
+          : '') + '</div>' +
+        '<p>Tes ratios, tes ψ et tes calculs sont enregistrés <b>dans ce navigateur, sur cet appareil</b>, jamais sur GitHub. ' +
+        'Tu es ici sur <b>' + BAO.echapper(lieu.texte) + '</b>.</p>' +
+        '<div class="alerte info">Le site en ligne, un fichier ouvert depuis ton PC, un autre navigateur ou ton téléphone ont ' +
+        '<b>chacun leurs propres données</b>, qui ne se voient pas entre elles. Pour passer de l\'un à l\'autre : ' +
+        '« Télécharger une sauvegarde complète » ici, puis « Restaurer une sauvegarde » là-bas.</div>';
+
+      if (presentes.length) {
+        html += '<div class="defilement"><table><thead><tr><th>Donnée</th><th>Modifiée</th><th>Sauvegardée</th></tr></thead><tbody>' +
+          presentes.map(function (c) {
+            const ok = etat.nonSauvegardees.indexOf(c) === -1;
+            const mod = Date.parse(suivi.modifs[c]), exp = Date.parse(suivi.exports[c]);
+            return '<tr><td>' + BAO.echapper(BAO.CLES_DONNEES[c]) + '</td>' +
+              '<td>' + (isFinite(mod) ? BAO.dateCourte(mod) : '<span class="muet">avant le suivi</span>') + '</td>' +
+              '<td>' + (isFinite(exp) ? BAO.dateCourte(exp) : 'jamais') + ' ' +
+              (ok ? '<span class="badge valide">ok</span>' : '<span class="badge exemple">à sauvegarder</span>') + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      } else {
+        html += '<p class="muet">Aucune donnée personnelle pour l\'instant sur cet appareil.</p>';
+      }
+
+      html += '<div class="barre-boutons" style="margin-top:12px">' +
+        '<button type="button" class="bouton principal" data-action="sauver">Télécharger une sauvegarde complète</button>' +
+        '<label class="bouton" style="cursor:pointer">Restaurer une sauvegarde' +
+        '<input type="file" accept=".json,application/json" hidden data-action="restaurer"></label></div>' +
+        '<p class="aide" style="margin:8px 0 0">(H) Un rappel s\'affiche en haut des pages si des données modifiées ne sont pas ' +
+        'sauvegardées depuis plus de ' + BAO.DELAI_RAPPEL_JOURS + ' jours.</p>';
+      element.innerHTML = html;
+    }
+
+    element.addEventListener('click', function (e) {
+      const b = e.target.closest('[data-action="sauver"]');
+      if (b && BAO.telechargerSauvegarde()) {
+        rendre();
+        const bandeau = document.querySelector('.rappel-sauvegarde');
+        if (bandeau) bandeau.remove();
+      }
+    });
+    element.addEventListener('change', function (e) {
+      if (e.target.dataset.action !== 'restaurer') return;
+      const f = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (f) BAO.choisirEtRestaurer(f);
+    });
+    rendre();
+  };
+
+  // Lit un fichier de sauvegarde complète, le restaure, puis recharge la page.
+  BAO.choisirEtRestaurer = function (fichier) {
+    return BAO.lireFichierJSON(fichier).then(function (contenu) {
+      if (BAO.restaurerSauvegarde(contenu)) global.location.reload();
+    }).catch(function (e) {
+      global.alert(e.message);
+    });
+  };
+
+  // Petite ligne pour l'onglet Données de chaque outil.
+  BAO.noteStockage = function (element, lienAccueil) {
+    element.innerHTML = 'Tes données restent <b>dans ce navigateur</b>, sur cet appareil (ici : ' + BAO.echapper(BAO.lieuStockage().texte) + '). ' +
+      'Elles ne partent jamais sur GitHub. Les boutons ci-dessous sauvegardent <b>cet outil</b> ; pour <b>toute la boîte à outils</b> ' +
+      '(et pour passer du PC au téléphone) : <a href="' + lienAccueil + '#mes-donnees">accueil › Mes données</a>.';
   };
 
   /* ---------- Nombres (format français) ---------- */
@@ -55,8 +299,19 @@
   BAO.lireNombre = function (texte) {
     if (typeof texte === 'number') return texte;
     if (texte === null || texte === undefined) return NaN;
-    const propre = String(texte).replace(/\s| | /g, '').replace(',', '.');
+    const propre = String(texte).replace(/[\s\u00a0\u202f]/g, '').replace(',', '.');
     return propre === '' ? NaN : Number(propre);
+  };
+
+  // Nombre positif ou nul tapé dans un champ ; '' si le champ est vide, invalide ou négatif.
+  BAO.lirePositif = function (texte) {
+    const n = BAO.lireNombre(texte);
+    return isFinite(n) && n >= 0 ? n : '';
+  };
+
+  // Valeur → texte d'un champ de saisie, à la française (12.5 → "12,5").
+  BAO.versChamp = function (valeur) {
+    return valeur === undefined || valeur === null || valeur === '' ? '' : String(valeur).replace('.', ',');
   };
 
   // "2025-01" -> "janv. 2025"
@@ -64,6 +319,19 @@
     if (!aaaamm || !/^\d{4}-\d{2}$/.test(aaaamm)) return aaaamm || '–';
     const [a, m] = aaaamm.split('-').map(Number);
     return new Date(a, m - 1, 1).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' });
+  };
+
+  // Date en millisecondes → "29/10/2026"
+  BAO.dateCourte = function (ms) {
+    return isFinite(ms) ? new Date(ms).toLocaleDateString('fr-FR') : '–';
+  };
+
+  // Date en millisecondes → "aujourd'hui", "hier", "il y a 12 jours"
+  BAO.ilYA = function (ms, maintenant) {
+    const jours = Math.floor(((maintenant === undefined ? Date.now() : maintenant) - ms) / JOUR);
+    if (jours <= 0) return 'aujourd\'hui';
+    if (jours === 1) return 'hier';
+    return 'il y a ' + jours + ' jours';
   };
 
   BAO.echapper = function (texte) {
@@ -74,6 +342,18 @@
 
   BAO.identifiant = function (prefixe) {
     return (prefixe || 'id') + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  };
+
+  /* ---------- Statut d'une valeur : exemple ou validé ---------- */
+  BAO.badgeStatut = function (statut) {
+    return statut === 'valide'
+      ? '<span class="badge valide">validé</span>'
+      : '<span class="badge exemple">exemple à valider</span>';
+  };
+
+  BAO.selectStatut = function (statut, attributs) {
+    return '<select ' + attributs + ' aria-label="Statut"><option value="exemple"' + (statut !== 'valide' ? ' selected' : '') + '>exemple</option>' +
+      '<option value="valide"' + (statut === 'valide' ? ' selected' : '') + '>validé</option></select>';
   };
 
   /* ---------- Fichiers ---------- */
@@ -87,6 +367,22 @@
     a.click();
     a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  };
+
+  // Télécharge un fichier JSON et note que ces clés sont sauvegardées.
+  BAO.telechargerJSON = function (nomFichier, contenu, clesSauvegardees, dateISO) {
+    BAO.telecharger(nomFichier, JSON.stringify(contenu, null, 2), 'application/json');
+    if (clesSauvegardees && clesSauvegardees.length) BAO.noterExport(clesSauvegardees, dateISO);
+  };
+
+  // Nom de fichier sûr, sans accents ni signes ("École — état 1" → "Ecole-etat-1").
+  BAO.nomFichier = function (texte, defaut) {
+    const propre = String(texte || '')
+      .replace(/œ/g, 'oe').replace(/Œ/g, 'OE').replace(/æ/g, 'ae').replace(/Æ/g, 'AE')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9 _-]+/g, ' ')
+      .trim().replace(/\s+/g, '-');
+    return propre || defaut;
   };
 
   BAO.lireFichierJSON = function (fichier) {
@@ -104,6 +400,21 @@
     const d = new Date();
     const p = function (n) { return String(n).padStart(2, '0'); };
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+  };
+
+  /* ---------- Export Excel (CSV à point-virgule, virgule décimale) ---------- */
+  BAO.celluleCSV = function (texte) {
+    return '"' + String(texte === undefined || texte === null ? '' : texte).replace(/"/g, '""') + '"';
+  };
+
+  BAO.nombreCSV = function (valeur, decimales) {
+    if (valeur === '' || valeur === null || valeur === undefined || !isFinite(valeur)) return '';
+    return Number(valeur).toFixed(decimales === undefined ? 2 : decimales).replace('.', ',');
+  };
+
+  BAO.telechargerCSV = function (nomFichier, lignes) {
+    // Le caractère invisible \ufeff (« BOM ») en tête permet à Excel de lire les accents (UTF-8).
+    BAO.telecharger(nomFichier, '\ufeff' + lignes.join('\r\n'), 'text/csv;charset=utf-8');
   };
 
   /* ---------- Presse-papiers (copie mise en forme pour Word) ---------- */
@@ -135,6 +446,44 @@
     } catch (e) {
       return false;
     }
+  };
+
+  /* Tableau prêt à coller dans Word, + la même chose en texte (tabulations).
+     colonnes : [{ titre, droite }]   (droite = aligné à droite, pour les nombres)
+     lignes   : [[cellule, cellule…]]
+     totaux   : [[libellé, valeur, gras]]  (le libellé occupe toutes les colonnes sauf la dernière) */
+  BAO.tableauWord = function (colonnes, lignes, totaux) {
+    const esc = BAO.echapper;
+    const bord = 'border:1px solid #9a9a9a;padding:4px 7px;';
+    const entete = bord + 'background:#e9e6df;font-weight:bold;';
+    const droite = 'text-align:right;white-space:nowrap;';
+    const n = colonnes.length;
+
+    let html = '<table style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:10pt"><thead><tr>' +
+      colonnes.map(function (c) { return '<th style="' + entete + (c.droite ? droite : 'text-align:left') + '">' + esc(c.titre) + '</th>'; }).join('') +
+      '</tr></thead><tbody>';
+    const texte = [colonnes.map(function (c) { return c.titre; }).join('\t')];
+
+    lignes.forEach(function (l) {
+      html += '<tr>' + l.map(function (cel, i) {
+        return '<td style="' + bord + (colonnes[i] && colonnes[i].droite ? droite : '') + '">' + esc(cel) + '</td>';
+      }).join('') + '</tr>';
+      texte.push(l.join('\t'));
+    });
+    (totaux || []).forEach(function (t) {
+      const style = bord + (t[2] ? 'font-weight:bold;background:#f3f1ec;' : '');
+      html += '<tr><td colspan="' + (n - 1) + '" style="' + style + '">' + esc(t[0]) + '</td>' +
+        '<td style="' + style + droite + '">' + esc(t[1]) + '</td></tr>';
+      texte.push(t[0] + '\t'.repeat(n - 1) + t[1]);
+    });
+    html += '</tbody></table>';
+    return { html: html, texte: texte.join('\n') };
+  };
+
+  BAO.copierPourWord = function (tableau) {
+    BAO.copierTableau(tableau.html, tableau.texte).then(function (ok) {
+      BAO.notifier(ok ? 'Tableau copié : colle-le dans Word (Ctrl+V).' : 'Copie impossible dans ce navigateur.');
+    });
   };
 
   /* ---------- Petite notification ---------- */
@@ -176,5 +525,138 @@
     return activer;
   };
 
+  /* ---------- Bouton « ▸ calcul » d'un tableau : ouvre / ferme la ligne de détail ---------- */
+  BAO.basculerDetail = function (bouton, id, ouverts) {
+    if (ouverts.has(id)) ouverts.delete(id); else ouverts.add(id);
+    const ouvert = ouverts.has(id);
+    const ligne = document.querySelector('tr[data-detail="' + CSS.escape(id) + '"]');
+    if (ligne) ligne.hidden = !ouvert;
+    bouton.setAttribute('aria-expanded', ouvert);
+    bouton.textContent = (ouvert ? '▾' : '▸') + ' calcul';
+  };
+
+  /* ---------- Onglet Méthode : sections repliables ----------
+     Chaque <h2> d'un bloc .methode devient le titre cliquable de sa section.
+     Sur ordinateur tout est ouvert ; sur téléphone, seule la 1re section l'est. */
+  BAO.sectionsRepliables = function (selecteur) {
+    document.querySelectorAll(selecteur).forEach(function (bloc) {
+      const titres = Array.from(bloc.children).filter(function (el) { return el.tagName === 'H2'; });
+      if (titres.length < 2) return;
+      const grandEcran = global.matchMedia ? global.matchMedia('(min-width: 900px)').matches : true;
+
+      titres.forEach(function (h2, i) {
+        const section = document.createElement('details');
+        section.className = 'section-methode';
+        section.open = grandEcran || i === 0;
+        const titre = document.createElement('summary');
+        bloc.insertBefore(section, h2);
+        titre.appendChild(h2);
+        section.appendChild(titre);
+        let el = section.nextSibling;
+        while (el && !(el.nodeType === 1 && el.tagName === 'H2')) {
+          const suivant = el.nextSibling;
+          section.appendChild(el);
+          el = suivant;
+        }
+      });
+
+      const barre = document.createElement('div');
+      barre.className = 'barre-boutons pas-impression';
+      barre.style.marginBottom = '6px';
+      barre.innerHTML = '<button type="button" class="bouton discret" data-tout="1">Tout ouvrir</button>' +
+        '<button type="button" class="bouton discret" data-tout="0">Tout fermer</button>';
+      barre.addEventListener('click', function (e) {
+        const b = e.target.closest('[data-tout]');
+        if (!b) return;
+        bloc.querySelectorAll('details.section-methode').forEach(function (d) { d.open = b.dataset.tout === '1'; });
+      });
+      bloc.insertBefore(barre, bloc.firstChild);
+    });
+  };
+
+  /* ---------- Calculs enregistrés (« Mes chiffrages », « Mes calculs ») ----------
+     options :
+       cle        clé de la liste dans le navigateur (ex. 'bao.chiffrage.projets.v1')
+       mot        'chiffrage' ou 'calcul' (pour les messages)
+       courant()  renvoie le calcul en cours
+       charger(p) remplace le calcul en cours par p (et réaffiche l'outil)
+       vide()     renvoie un calcul vide
+       estVide()  vrai si le calcul en cours ne contient encore rien
+     La page doit avoir : #liste-projets, #nom-projet, #btn-enregistrer,
+     #btn-ouvrir, #btn-nouveau, #btn-supprimer-projet. */
+  BAO.calculsEnregistres = function (o) {
+    const $ = function (s) { return document.querySelector(s); };
+    const Mot = o.mot.charAt(0).toUpperCase() + o.mot.slice(1);
+    let liste = BAO.lire(o.cle, {}) || {};
+
+    function sauver() { BAO.ecrire(o.cle, liste); }
+
+    function rendre() {
+      const nomCourant = o.courant().nom;
+      const noms = Object.keys(liste).sort(function (a, b) { return a.localeCompare(b, 'fr'); });
+      $('#liste-projets').innerHTML = noms.length
+        ? noms.map(function (n) { return '<option value="' + BAO.echapper(n) + '"' + (n === nomCourant ? ' selected' : '') + '>' + BAO.echapper(n) + '</option>'; }).join('')
+        : '<option value="">Aucun ' + o.mot + ' enregistré</option>';
+    }
+
+    function enregistrer() {
+      const nom = (o.courant().nom || '').trim();
+      if (!nom) { BAO.notifier('Donne un nom au ' + o.mot + ' avant de l\'enregistrer.'); $('#nom-projet').focus(); return; }
+      if (liste[nom] && !global.confirm('Un ' + o.mot + ' « ' + nom + ' » existe déjà. Le remplacer ?')) return;
+      liste[nom] = BAO.cloner(o.courant());
+      sauver();
+      rendre();
+      BAO.notifier(Mot + ' « ' + nom + ' » enregistré.');
+    }
+
+    function ouvrir() {
+      const nom = $('#liste-projets').value;
+      if (!nom || !liste[nom]) return;
+      o.charger(BAO.cloner(liste[nom]));
+      BAO.notifier(Mot + ' « ' + nom + ' » ouvert.');
+    }
+
+    function nouveau() {
+      if (!o.estVide() && !global.confirm('Commencer un nouveau ' + o.mot + ' ? (Le ' + o.mot + ' en cours n\'est gardé que s\'il a été enregistré.)')) return;
+      o.charger(o.vide());
+      $('#nom-projet').focus();
+      $('#nom-projet').select();
+    }
+
+    function supprimer() {
+      const nom = $('#liste-projets').value;
+      if (!nom || !liste[nom]) return;
+      if (!global.confirm('Supprimer définitivement le ' + o.mot + ' enregistré « ' + nom + ' » ?')) return;
+      delete liste[nom];
+      sauver();
+      rendre();
+      BAO.notifier(Mot + ' supprimé.');
+    }
+
+    $('#btn-enregistrer').addEventListener('click', enregistrer);
+    $('#btn-ouvrir').addEventListener('click', ouvrir);
+    $('#btn-nouveau').addEventListener('click', nouveau);
+    $('#btn-supprimer-projet').addEventListener('click', supprimer);
+
+    return {
+      rendre: rendre,
+      tous: function () { return liste; },
+      remplacerTous: function (nouvelle) { liste = nouvelle || {}; sauver(); }
+    };
+  };
+
+  /* ---------- Démarrage commun à toutes les pages ---------- */
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', BAO.afficherRappelSauvegarde);
+    else BAO.afficherRappelSauvegarde();
+    if (global.addEventListener) {
+      // À l'impression, toutes les sections de la Méthode sont ouvertes.
+      global.addEventListener('beforeprint', function () {
+        document.querySelectorAll('details.section-methode').forEach(function (d) { d.open = true; });
+      });
+    }
+  }
+
   global.BAO = BAO;
-})(window);
+  if (typeof module !== 'undefined' && module.exports) module.exports = BAO;
+})(typeof window !== 'undefined' ? window : globalThis);
