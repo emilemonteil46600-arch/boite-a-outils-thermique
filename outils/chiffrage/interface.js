@@ -1108,6 +1108,7 @@
      ========================================================== */
   BAO.initOnglets(CLES.onglet);
   BAO.noteStockage($('#note-stockage'), '../../index.html');
+  BAO.testeToi($('#teste-toi'), window.ChiffrageExercices);
   BAO.sectionsRepliables('#onglet-methode .methode');
   brancherEvenements();
   renderTout();

@@ -121,7 +121,40 @@ async function largeurs(page) {
   ok(await page.$$eval('#choix-scenarios [data-scenario]', function (b) { return b.length; }) === 1 &&
     await page.$$eval('#corps-lignes tr[data-ligne]', function (t) { return t.length; }) === 1, 'Ancien chiffrage (sans scénario) : repris dans « Scénario 1 »');
 
-  console.log('5. Rappel de sauvegarde, sauvegarde complète et restauration');
+  console.log('5. Lot 3 : condensation, schéma interactif, lexique, Teste-toi');
+  await page.goto(url('outils/ponts-thermiques/index.html'));
+  await page.click('[data-onglet="calcul"]');
+  await page.click('[data-liaison="acrotere"]');
+  await page.click('[data-isolation="ITI"]');
+  const fiche = function () { return page.textContent('#fiche-valeur').then(function (t) { return t.replace(/\s/g, ' '); }); };
+  ok((await fiche()).includes('10,7 °C') && (await fiche()).includes('risque de moisissures'), 'Acrotère ITI à −7 °C : paroi à 10,7 °C, risque de moisissures');
+  ok((await page.textContent('#schema svg')).includes('10,7 °C'), 'La température de la paroi est écrite sur le schéma');
+  await page.$eval('#curseur-te', function (c) { c.value = '5'; c.dispatchEvent(new Event('input', { bubbles: true })); });
+  ok((await fiche()).includes('pas de risque') && (await page.textContent('#schema svg')).includes('14,5 °C'), 'Curseur à 5 °C dehors : 5 + 0,68 × 14 = 14,5 °C, plus de risque');
+  await page.click('[data-liaison="plancher-inter"]');
+  await page.click('#btn-avant-apres');
+  ok(await page.$$eval('#schema svg', function (s) { return s.length; }) === 2, 'Avant / après : deux schémas côte à côte');
+  await page.click('[data-onglet="methode"]');
+  const termes = await page.$$eval('#onglet-methode .terme', function (t) { return t.length; });
+  ok(termes >= 10, 'Méthode des ponts : ' + termes + ' mots reliés au lexique');
+  await page.click('#onglet-methode .terme[data-terme="frsi"]');
+  ok(await page.isVisible('.lexique-panneau .lexique-terme.vise[data-id="frsi"]'), 'Clic sur « fRsi » : le lexique s\'ouvre sur sa définition');
+  await page.keyboard.press('Escape');
+  for (const p of ['index.html', 'outils/batiment/index.html', 'outils/chiffrage/index.html']) {
+    await page.goto(url(p));
+    ok(await page.$('.bouton-lexique') !== null, 'Bouton « Lexique » sur ' + p);
+  }
+  await page.click('[data-onglet="methode"]');
+  await page.$$eval('details.section-methode', function (d) { d.forEach(function (x) { x.open = true; }); });
+  const exercices = await page.$$('#teste-toi .exercice');
+  ok(exercices.length >= 4, 'Teste-toi du chiffrage : ' + exercices.length + ' exercices');
+  await page.fill('#teste-toi .exercice[data-index="0"] [data-reponse]', '1');
+  await page.click('#teste-toi .exercice[data-index="0"] [data-action="verifier"]');
+  const correction = await page.textContent('#teste-toi .exercice[data-index="0"] .exercice-retour');
+  ok(correction.includes('Pas tout à fait') && correction.includes('Prix actualisé'), 'Mauvaise réponse : la correction s\'affiche étape par étape');
+  ok((await page.textContent('#teste-toi [data-score]')).includes('0 / 1'), 'Le score se met à jour');
+
+  console.log('6. Rappel de sauvegarde, sauvegarde complète et restauration');
   await page.reload();
   ok(await page.$('.rappel-sauvegarde') !== null, 'Rappel affiché : données jamais sauvegardées');
   const [sauvegarde] = await Promise.all([page.waitForEvent('download'), page.click('.rappel-sauvegarde [data-action="sauver"]')]);

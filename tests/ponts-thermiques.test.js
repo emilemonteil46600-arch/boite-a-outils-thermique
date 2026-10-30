@@ -80,3 +80,39 @@ test('Exemple Méthode « Combien ça coûte » : 76 W/K ≈ 472 €/an, après 
   assert.equal(en.valeur.besoin, 3648);
   assert.equal(Math.round(en.valeur.euros), 472);
 });
+
+test('Point de rosée (Magnus) : 20 °C et 50 % → 9,3 °C', function () {
+  assert.equal(Math.round(C.pointDeRosee(20, 50) * 10) / 10, 9.3);
+});
+
+test('Exemple Méthode condensation : 19 °C, 50 %, −7 °C dehors', function () {
+  const cond = { ti: 19, te: -7, hr: 50 };
+  const plancher = C.risqueCondensation(0.75, cond);
+  assert.equal(Math.round(plancher.surface * 10) / 10, 12.5);
+  assert.equal(Math.round(plancher.rosee * 10) / 10, 8.3);
+  assert.equal(Math.round(plancher.moisissure * 10) / 10, 11.7);
+  assert.equal(Math.round(plancher.fRsiMin * 100) / 100, 0.72);
+  assert.equal(plancher.niveau, 'ok');
+  assert.equal(Math.round(C.risqueCondensation(0.68, cond).surface * 10) / 10, 10.7);
+  assert.equal(C.risqueCondensation(0.68, cond).niveau, 'moisissures');
+  assert.equal(C.risqueCondensation(0.95, cond).niveau, 'ok');
+  const humide = C.risqueCondensation(0.68, { ti: 19, te: -7, hr: 60 });
+  assert.equal(Math.round(humide.rosee * 10) / 10, 11.1);
+  assert.equal(humide.niveau, 'condensation');
+});
+
+test('fRsi inconnu ou hors de 0 à 1 : pas de verdict plutôt qu\'un faux résultat', function () {
+  assert.equal(C.risqueCondensation(undefined, { ti: 19, te: -7, hr: 50 }), null);
+  assert.equal(C.risqueCondensation(1.4, { ti: 19, te: -7, hr: 50 }), null);
+});
+
+test('Le projet compte les liaisons à risque (acrotère ITI et fenêtre ITE à −7 °C)', function () {
+  const BIBLIO_H = { valeurs: E.valeurs, reglages: E.reglages };
+  const r = C.calculerProjet({ hParois: 320, lignes: [
+    { valeurId: 'pi-iti', longueur: 60 }, { valeurId: 'ac-iti', longueur: 40 }, { valeurId: 'me-ite', longueur: 80 }
+  ] }, BIBLIO_H, { ti: 19, te: -7 });
+  assert.equal(r.conditions.hr, 50, 'humidité prise dans les réglages');
+  assert.equal(r.vigilance.lignesMoisissures, 2);
+  assert.equal(r.vigilance.lignesCondensation, 0);
+});
+

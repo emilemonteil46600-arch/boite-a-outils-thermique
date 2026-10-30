@@ -208,9 +208,23 @@
     return { fond: f, ponts: [pont], flux: flux, courant: courant, textes: t };
   }
 
-  /* ---------- Assemblage ---------- */
-  // psi sert uniquement à régler l'épaisseur des flèches et la taille du halo.
-  function dessiner(liaison, isolation, variante, psi) {
+  /* ---------- Le point le plus froid côté pièce ----------
+     Là où on affiche la température de surface (coin intérieur au droit de la liaison). */
+  const X_FACE = { ITI: 206, ITE: 172, ITR: 192 };
+  function pointFroid(liaison, isolation) {
+    const x = X_FACE[isolation] || 206;
+    if (liaison === 'plancher-inter') return [x + 4, 110];
+    if (liaison === 'refend') return [x + 4, 112];
+    if (liaison === 'plancher-bas') return [x + 4, 142];
+    if (liaison === 'acrotere') return [x + 4, 126];
+    return [x + 2, 132];
+  }
+
+  /* ---------- Assemblage ----------
+     psi sert uniquement à régler l'épaisseur des flèches et la taille du halo.
+     options.temperature (facultatif) : { texte: '12,5 °C', niveau: 'ok' | 'moisissures' | 'condensation' },
+     déjà calculé et mis en forme par l'interface. */
+  function dessiner(liaison, isolation, variante, psi, options) {
     const id = 'sch' + (++compteur);
     let d;
     if (liaison === 'plancher-inter') d = plancherOuRefend(isolation, variante, id, false);
@@ -247,9 +261,17 @@
 
     const etiquettes = texte(8, 16, 'EXTÉRIEUR') + texte(332, 16, 'INTÉRIEUR', 'end');
 
+    let thermometre = '';
+    const t = options && options.temperature;
+    if (t) {
+      const pt = pointFroid(liaison, isolation);
+      thermometre = '<circle cx="' + pt[0] + '" cy="' + pt[1] + '" r="5" class="sch-temp sch-temp-' + t.niveau + '"/>' +
+        '<text x="' + (pt[0] + 9) + '" y="' + (pt[1] + 4) + '" class="sch-temp-texte sch-temp-' + t.niveau + '">' + t.texte + '</text>';
+    }
+
     return '<svg viewBox="0 0 340 260" role="img" aria-label="Schéma de principe : ' + liaison + ', ' + isolation + '" class="schema-svg">' +
       defs + '<rect width="340" height="260" class="sch-zone-chaude"/>' + d.fond + halos + fluxCourants + fluxPont +
-      d.textes + etiquettes + '</svg>';
+      d.textes + etiquettes + thermometre + '</svg>';
   }
 
   const PontsSchemas = { dessiner: dessiner };

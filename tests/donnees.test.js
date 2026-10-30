@@ -86,6 +86,34 @@ test('Dossier bâtiment : chaque prix d\'énergie a une source, un mois et un st
   });
 });
 
+test('Ponts thermiques : chaque fRsi d\'exemple est entre 0 et 1, et plus faible quand ψ est fort (même liaison)', function () {
+  PT.valeurs.forEach(function (v) {
+    assert.ok(v.fRsi > 0 && v.fRsi <= 1, v.id + ' : fRsi hors de 0 à 1');
+  });
+  assert.ok(PT.reglages.humidite.hr > 0 && PT.reglages.humidite.source, 'humidité intérieure sans valeur ou sans source');
+  PT.liaisons.forEach(function (l) {
+    const v = PT.valeurs.filter(function (x) { return x.liaison === l.id; });
+    v.forEach(function (a) {
+      v.forEach(function (b) {
+        if (a.psi > b.psi + 0.05) assert.ok(a.fRsi <= b.fRsi, l.id + ' : ' + a.id + ' a un ψ plus fort mais un fRsi meilleur que ' + b.id);
+      });
+    });
+  });
+});
+
+test('Lexique : chaque terme a un identifiant unique, une définition, et ses motifs ne sont pas partagés', function () {
+  charger('donnees/lexique.js');
+  const T = window.LEXIQUE.termes;
+  assert.ok(T.length >= 20);
+  assert.ok(sansDoublon(T.map(function (t) { return t.id; })), 'identifiants en double');
+  const motifs = [];
+  T.forEach(function (t) {
+    assert.ok(t.terme && t.definition && t.definition.length > 20, t.id + ' : définition manquante');
+    (t.motifs || []).forEach(function (m) { motifs.push(m.toLowerCase()); });
+  });
+  assert.ok(sansDoublon(motifs), 'un même motif renvoie vers deux termes');
+});
+
 test('Confidentialité : aucun nom de l\'entreprise dans les données publiques', function () {
   fs.readdirSync(path.join(RACINE, 'donnees')).forEach(function (f) {
     const texte = fs.readFileSync(path.join(RACINE, 'donnees', f), 'utf8');

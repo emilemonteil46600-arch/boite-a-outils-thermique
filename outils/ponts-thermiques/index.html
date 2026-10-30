@@ -88,6 +88,7 @@
                 <span><i style="background:var(--sch-flux); border-color:var(--sch-flux)"></i>fuite de chaleur</span>
               </div>
               <p class="aide" style="margin:6px 0 0">(H) Schéma de principe, pas une simulation. L'épaisseur des flèches rouges suit la valeur de ψ.</p>
+              <button type="button" class="bouton" id="btn-avant-apres" style="margin-top:8px" hidden>Voir avant / après</button>
               <p class="alerte attention" id="note-schema" style="margin:8px 0 0" hidden>Variante ajoutée par toi : le schéma montre le cas <b>standard</b> de cette liaison, pas ton détail.</p>
             </div>
             <div id="fiche-valeur" aria-live="polite"></div>
@@ -247,11 +248,33 @@ Après ITE         : 39 W/K × 2 000 × 24 / 1000 = 1 872 kWh/an → 1 872 / 0,8
 Économie          : ≈ 230 €/an sur les seuls ponts thermiques</div>
       <p>Ce que ça raconte : en euros, les ponts thermiques pèsent peu face au coût d'une ITE. Les traiter se justifie surtout par le <b>confort</b> et la <b>condensation</b> (parois froides, moisissures), et parce que le surcoût est faible quand on fait déjà les travaux <b>(H)</b>.</p>
 
-      <h2>7. Comment mesurer les longueurs L</h2>
+      <h2>7. Condensation et moisissures</h2>
+      <p>Un pont thermique ne fait pas que perdre de la chaleur : il rend la paroi <b>froide côté pièce</b>. L'air intérieur contient de la vapeur d'eau. Au contact d'une surface trop froide, elle se dépose, comme la buée sur une vitre. Un peu avant ça, l'humidité au contact de la paroi suffit déjà pour que des <b>moisissures</b> poussent.</p>
+      <div class="formule">fRsi            = (θ paroi − θ dehors) / (θ dedans − θ dehors)      (entre 0 et 1)
+θ paroi         = θ dehors + fRsi × (θ dedans − θ dehors)
+Condensation    : θ paroi sous le point de rosée de l'air intérieur (formule de Magnus)
+Moisissures     : θ paroi sous le point de rosée d'un air à HR / 0,8 (80 % d'humidité au contact de la paroi)</div>
+      <ul>
+        <li><b>fRsi</b> (facteur de température de surface intérieure) : 1 = la paroi est aussi chaude que l'air intérieur, 0 = aussi froide que dehors. Il ne dépend que du détail (géométrie, matériaux), pas de la météo : c'est pour ça qu'on peut le tabuler, comme ψ.</li>
+        <li><b>Le seuil de 80 %</b> vient de NF EN ISO 13788 : les moisissures n'attendent pas que l'eau ruisselle.</li>
+        <li><b>L'humidité intérieure compte autant que le pont thermique</b> : plus l'air est humide (cuisine, pièce suroccupée, ventilation en panne), plus le point de rosée monte.</li>
+      </ul>
+      <p>Exemple : air intérieur à 19 °C et 50 %, −7 °C dehors (température de base du bâtiment d'exemple) :</p>
+      <div class="formule">Point de rosée      = 8,3 °C     (en dessous : condensation)
+Seuil moisissures   = 11,7 °C    (en dessous : moisissures)
+fRsi minimal        = (11,7 − (−7)) / (19 − (−7)) = 0,72
+
+Plancher ITI   fRsi 0,75 : θ paroi = −7 + 0,75 × 26 = 12,5 °C → ✅ (de justesse)
+Acrotère ITI   fRsi 0,68 : θ paroi = −7 + 0,68 × 26 = 10,7 °C → 🟠 moisissures
+Plancher ITE   fRsi 0,95 : θ paroi = −7 + 0,95 × 26 = 17,7 °C → ✅
+Même acrotère avec 60 % d'humidité : point de rosée 11,1 °C → ❌ condensation</div>
+      <p>Ce que ça raconte : les traînées noires dans les angles au plafond, c'est souvent un pont thermique <b>et</b> un air trop humide (ventilation insuffisante). Traiter l'un sans l'autre ne suffit pas toujours. Dans l'onglet Calcul, le curseur « température dehors » te montre à partir de quel froid une liaison devient risquée.</p>
+
+      <h2>8. Comment mesurer les longueurs L</h2>
       <ul id="liste-mesures"></ul>
       <p class="aide">(H) Les ψ des règles Th-U sont en <b>dimensions intérieures</b> : mesure les longueurs côté intérieur, comme pour les surfaces A.</p>
 
-      <h2>8. D'où viennent les valeurs</h2>
+      <h2>9. D'où viennent les valeurs</h2>
       <ul>
         <li><b>Le vrai calcul est en 2D numérique</b> (NF EN ISO 10211) : on découpe le détail en petits morceaux et un logiciel calcule la température en chaque point. Le ψ, c'est ce que le détail perd en plus de deux parois « parfaites ». Ce calcul est fait pour les catalogues et les avis techniques, rarement en audit.</li>
         <li><b>En audit</b>, on utilise des valeurs <b>tabulées</b> : fascicule Th-Bât « Ponts thermiques », avis techniques des rupteurs, valeurs par défaut de NF EN ISO 14683 (assez pénalisantes).</li>
@@ -259,7 +282,7 @@ Après ITE         : 39 W/K × 2 000 × 24 / 1000 = 1 872 kWh/an → 1 872 / 0,8
         <li>Les valeurs de cet outil sont des <b>ordres de grandeur d'exemple</b>. Passe chaque valeur en « validé » quand tu l'as vérifiée dans le fascicule.</li>
       </ul>
 
-      <h2>9. Limites connues (H)</h2>
+      <h2>10. Limites connues (H)</h2>
       <ul>
         <li><b>(H)</b> Une seule valeur par cas, alors qu'en vrai ψ dépend de l'épaisseur d'isolant, de la nature du mur, de l'épaisseur de dalle… Le fascicule Th-Bât donne des tableaux bien plus détaillés.</li>
         <li><b>(H)</b> Menuiserie : une seule valeur moyenne pour l'appui, les tableaux et le linteau. En réalité l'appui est souvent le plus défavorable.</li>
@@ -268,12 +291,18 @@ Après ITE         : 39 W/K × 2 000 × 24 / 1000 = 1 872 kWh/an → 1 872 / 0,8
         <li><b>(H)</b> Les ponts thermiques ponctuels χ (fixations, consoles, chevilles d'ITE) sont ignorés.</li>
         <li><b>(H)</b> Fourchette ± 20 % : c'est une convention de l'outil, pas une incertitude calculée.</li>
         <li><b>(H)</b> Les seuils « faible / moyen / fort » sont une convention de lecture, pas une norme.</li>
+        <li><b>(H)</b> Condensation : les fRsi sont des ordres de grandeur d'exemple (le vrai fRsi sort d'un calcul 2D). Le calcul prend la température de base, plus sévère que la moyenne du mois le plus froid utilisée par NF EN ISO 13788, et une humidité intérieure fixe.</li>
       </ul>
 
-      <h2>10. Où est le code</h2>
+      <h2>11. Teste-toi</h2>
+      <p>Des exercices tirés au hasard, corrigés étape par étape. Refais-les jusqu'à trouver juste sans regarder la formule.</p>
+      <div id="teste-toi"></div>
+
+      <h2>12. Où est le code</h2>
       <ul>
         <li><code>outils/ponts-thermiques/calcul.js</code> : <b>tout le calcul</b>, commenté en français.</li>
         <li><code>outils/ponts-thermiques/schemas.js</code> : les dessins SVG (aucun calcul).</li>
+        <li><code>outils/ponts-thermiques/exercices.js</code> : les exercices « Teste-toi » (les réponses viennent de <code>calcul.js</code>).</li>
         <li><code>outils/ponts-thermiques/interface.js</code> : l'affichage et les boutons (aucun calcul).</li>
         <li><code>donnees/ponts-thermiques-exemple.js</code> : le catalogue d'exemple et les explications (public).</li>
         <li><code>outils/batiment/calcul.js</code> : le passage des W/K aux kWh et aux € (partagé avec les autres outils).</li>
@@ -317,6 +346,7 @@ Après ITE         : 39 W/K × 2 000 × 24 / 1000 = 1 872 kWh/an → 1 872 / 0,8
               <th>Isolant</th>
               <th>Détail constructif</th>
               <th class="num">ψ</th>
+              <th class="num" title="Facteur de température de surface intérieure">fRsi</th>
               <th>Mois</th>
               <th>Source</th>
               <th>Statut</th>
@@ -365,7 +395,18 @@ Après ITE         : 39 W/K × 2 000 × 24 / 1000 = 1 872 kWh/an → 1 872 / 0,8
           <select id="statut-incertitude"><option value="exemple">exemple</option><option value="valide">validé</option></select>
         </div>
       </div>
-      <p class="aide" id="source-incertitude" style="margin:8px 0 0"></p>
+      <p class="aide" id="source-incertitude" style="margin:8px 0 16px"></p>
+      <div class="champs">
+        <div class="champ">
+          <label for="humidite">Humidité intérieure (%)</label>
+          <input type="text" inputmode="decimal" id="humidite">
+        </div>
+        <div class="champ">
+          <label for="statut-humidite">Statut de l'humidité</label>
+          <select id="statut-humidite"><option value="exemple">exemple</option><option value="valide">validé</option></select>
+        </div>
+      </div>
+      <p class="aide" id="source-humidite" style="margin:8px 0 0"></p>
     </div>
   </section>
 </main>
@@ -380,6 +421,8 @@ Après ITE         : 39 W/K × 2 000 × 24 / 1000 = 1 872 kWh/an → 1 872 / 0,8
 <script src="../batiment/calcul.js"></script>
 <script src="calcul.js"></script>
 <script src="schemas.js"></script>
+<script src="exercices.js"></script>
+<script src="../../donnees/lexique.js"></script>
 <script src="interface.js"></script>
 </body>
 </html>

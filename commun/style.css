@@ -324,6 +324,7 @@ tr.detail td { background: var(--surface-2); font-size: .86rem; color: var(--enc
 .badge.exemple { background: var(--alerte-doux); color: var(--alerte); }
 .badge.valide { background: var(--ok-doux); color: var(--ok); }
 .badge.info { background: var(--froid-doux); color: var(--froid); }
+.badge.danger { background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); }
 .badge.bientot { background: var(--surface-2); color: var(--encre-3); border: 1px solid var(--bord); }
 
 .alerte {
@@ -405,9 +406,47 @@ tr.detail td { background: var(--surface-2); font-size: .86rem; color: var(--enc
 .schema-svg .sch-flux-courant { stroke: var(--encre-3); stroke-width: 1.2; stroke-dasharray: 4 3; }
 .schema-svg .sch-fleche-courant { fill: var(--encre-3); }
 .schema-svg .sch-texte { fill: var(--encre-2); font-size: 11px; font-family: var(--police); font-weight: 600; }
+.schema-svg .sch-temp { stroke: var(--surface); stroke-width: 2; }
+.schema-svg .sch-temp-texte { font-size: 13px; font-family: var(--police); font-weight: 750; stroke: var(--surface); stroke-width: 3px; paint-order: stroke; }
+.schema-svg .sch-temp-ok { fill: var(--ok); }
+.schema-svg .sch-temp-moisissures { fill: var(--alerte); }
+.schema-svg .sch-temp-condensation { fill: var(--danger); }
 .legende { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .8rem; color: var(--encre-2); margin-top: 8px; }
 .legende span { display: inline-flex; align-items: center; gap: 6px; }
 .legende i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; border: 1px solid var(--bord-fort); }
+
+/* ---------- Lexique ---------- */
+.bouton-lexique { margin-left: auto; }
+.bouton-lexique + .version { margin-left: 0; }
+.terme {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: help;
+  border-bottom: 1px dotted var(--froid); line-height: inherit;
+}
+.terme:hover { color: var(--froid); }
+.lexique-panneau {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 40;
+  width: min(420px, 100%); overflow-y: auto;
+  background: var(--surface); border-left: 1px solid var(--bord); box-shadow: -8px 0 24px rgba(0, 0, 0, .12);
+  padding: 16px;
+}
+.lexique-panneau[hidden] { display: none; }
+.lexique-tete { display: flex; justify-content: space-between; align-items: center; }
+.lexique-tete h2 { margin: 0; }
+.lexique-panneau input[type="search"] {
+  font: inherit; width: 100%; margin: 10px 0 12px; padding: 7px 9px;
+  border: 1px solid var(--bord-fort); border-radius: 7px; background: var(--surface); color: var(--encre);
+}
+.lexique-panneau dl { margin: 0; }
+.lexique-terme { padding: 8px 6px; border-bottom: 1px solid var(--bord); border-radius: 6px; }
+.lexique-terme[hidden] { display: none; }
+.lexique-terme dt { font-weight: 700; }
+.lexique-terme dd { margin: 2px 0 0; color: var(--encre-2); font-size: .9rem; }
+.lexique-terme.vise { background: var(--froid-doux); }
+
+/* ---------- Teste-toi ---------- */
+.exercice { border: 1px solid var(--bord); border-radius: 8px; padding: 12px; margin: 10px 0; background: var(--surface-2); }
+.exercice-titre { font-weight: 700; margin-bottom: 4px; }
+.exercice p { margin: 0 0 8px; }
 
 /* ---------- Accueil : cartes des outils ---------- */
 .grille-outils { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin: 18px 0 28px; }
@@ -466,7 +505,7 @@ a.outil:hover { border-color: var(--accent); transform: translateY(-2px); }
 /* ---------- Impression ---------- */
 @media print {
   body { background: #fff; color: #000; font-size: 11pt; }
-  .entete, .onglets, .pas-impression, .pied, .bouton { display: none !important; }
+  .entete, .onglets, .pas-impression, .pied, .bouton, .lexique-panneau { display: none !important; }
   .carte { box-shadow: none; border: none; padding: 0; }
   .grille-2 { display: block; }
   .panneau[hidden] { display: none !important; }
