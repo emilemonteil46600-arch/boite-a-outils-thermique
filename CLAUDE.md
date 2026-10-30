@@ -118,6 +118,47 @@ en commençant par les 5 postes qu'il chiffre le plus souvent.
 - Lot 3 « comprendre » : schémas interactifs, exercices « Teste-toi », lexique, risque de condensation (fRsi).
 - Lot 4 : calcul 2D aux différences finies dans le navigateur, validé sur les cas de NF EN ISO 10211.
 
+## Projet « Audit flash » (idée validée par Émile le 30/10/2026, pas commencé)
+
+**But** : un pré-diagnostic en 5 minutes. On clique sur un bâtiment sur une carte, on répond à 6 à 10 questions,
+et en quelques secondes on sait à peu près combien il consomme, ce qui vaut le coup et ce qui ne vaut pas le coup
+(« la toiture oui, le vitrage non, déjà du double vitrage »).
+
+**Pour qui, pour quoi** (réponses d'Émile) :
+- Bâtiments : **tertiaire, public et logement**.
+- Usages : **répondre vite à un client ou à un devis**, et **préparer une visite**.
+- Utilisateurs : Émile, quelqu'un qui l'aide, peut-être un client → prévoir à terme un mode « client » simplifié.
+- Sans réseau : pas tranché → en ligne d'abord, avec un mode « saisie sans carte » pour le calcul.
+- **IA d'analyse des photos : pas pour l'instant** (choix d'Émile). Google Maps / Street View : écarté
+  (clé payante, conditions qui interdisent d'extraire les images).
+
+**Ce que l'outil doit faire** :
+- Carte : adresse ou clic → contour du bâtiment, **surface approximative** (surface au sol × niveaux, hauteur / ~3 m (H)),
+  bâtiment **en 3D** si possible. Pistes (H, à vérifier) : MapLibre GL JS (sans npm), fond IGN Géoplateforme ou
+  OpenStreetMap, hauteurs IGN BD TOPO ou BDNB, photo aérienne IGN, photos de rue Panoramax.
+- Pré-remplissage (H, à tester) : Base Adresse Nationale, BDNB du CSTB (année, usage, matériaux, énergie), DPE ADEME.
+- Questions rapides : type de mur, de vitrage, de chauffage, de rafraîchissement, d'ECS, nombre d'occupants…
+- **Calcul même s'il manque des paramètres** : chaque valeur manquante est déduite de l'année et de l'usage
+  (logement : valeurs par défaut de la méthode DPE 3CL ; tertiaire : ratios par usage à sourcer). Chaque valeur
+  affiche son origine (saisie / carte-BDNB / déduite de l'année). Plus il manque d'infos, plus la fourchette s'élargit,
+  avec un indicateur de fiabilité.
+- **Avec ou sans factures** : sans factures, une estimation en fourchette ; avec factures, le modèle est **calé** dessus
+  (coefficient facture / calcul) et les gains sont calculés sur le modèle calé.
+- Préconisations : gain de chaque action et de chaque bouquet (gains non additifs : calcul dans l'ordre), coût
+  (ratios du chiffrage), **temps de retour brut et actualisé** (inflation de l'énergie + taux d'actualisation (H),
+  dans Données), comparaison à la durée de vie → ✅ à faire / 🟠 à discuter / ❌ pas rentable.
+- Sortie : fiche d'une page pour Word, et un bouton « approfondir » qui envoie tout vers le dossier bâtiment et le chiffrage.
+- Toujours afficher « pré-diagnostic, ordre de grandeur, pas un audit réglementaire ».
+
+**Ordre décidé** : 1) **carte d'abord** (test de faisabilité des données publiques depuis une page web, puis carte 2D
++ clic + surface + pré-remplissage) ; 2) le moteur de calcul (questions, valeurs par défaut, calage factures,
+préconisations, temps de retour) ; 3) la 3D et les photos ; 4) le mode client. L'IA photo est mise de côté.
+
+**Points d'attention** : la carte et les données publiques demandent Internet (exception à la règle « marche en
+file:// sans réseau », à garder pour la partie calcul) ; l'adresse part vers des services publics (jamais le nom du
+client) ; conditions d'utilisation de chaque service à vérifier ; garder la règle « pas de boîte noire » : chaque
+chiffre doit pouvoir s'expliquer.
+
 **Pistes après le lot 2 (H)** : CO₂ évité (facteurs d'émission par énergie) ; aides (CEE) ; énergie primaire / étiquette DPE ;
 durée de vie et coût global (VAN) en plus du temps de retour brut.
 
