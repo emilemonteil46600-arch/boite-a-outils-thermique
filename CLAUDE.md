@@ -124,7 +124,12 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
 en commençant par les 5 postes qu'il chiffre le plus souvent.
 
 **Feuille de route proposée (29/10/2026)** — lots 1 « solide », 2 « utile pour les rapports » et 3 « comprendre » faits ;
-ensuite au choix d'Émile : Audit flash (carte d'abord, voir plus bas), Confort d'été, ou :
+**Décision du 02/11/2026 : le Simulateur de confort d'été devient l'outil phare.** Cahier des charges complet :
+`docs/confort-ete/CAHIER-DES-CHARGES.md` (à lire avant tout travail dessus ; construction étape par étape,
+avec une fiche de compréhension et l'accord d'Émile à chaque étape). L'Audit flash est **mis en pause**
+(GoRénov couvre déjà le pré-diagnostic). Le chiffrage reste un outil de fond, enrichi par les vrais prix d'Émile.
+
+Avant cette décision, les options étaient : Audit flash (carte d'abord, voir plus bas), Confort d'été, ou :
 - Lot 4 : calcul 2D aux différences finies dans le navigateur, validé sur les cas de NF EN ISO 10211.
 
 ## Projet « Audit flash » (idée validée par Émile le 30/10/2026, pas commencé)
