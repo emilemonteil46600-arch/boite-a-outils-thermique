@@ -118,15 +118,15 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
 | Ponts thermiques ψ | **V1 en ligne + lot 2 (kWh/an, €/an, puissance via le dossier bâtiment).** 5 liaisons × ITI/ITE/ITR + variantes traitées (rupteur, retour d'isolant, soubassement, acrotère isolé), 21 ψ d'exemple « esprit Th-Bât » à vérifier, schéma SVG avec flux (`schemas.js`), explication du pourquoi, Σ ψ × L et part dans Σ U×A + Σ ψ×L (saisi), fourchette ± 20 % (H), variantes perso, calculs enregistrés, export Word / CSV / JSON. |
 | Lot 3 « comprendre » | **Condensation** dans les ponts thermiques (fRsi d'exemple par cas, θ paroi, point de rosée Magnus, seuil moisissures 80 % NF EN ISO 13788, verdict ✅/🟠/❌, humidité intérieure dans Données) ; **schéma interactif** (température de la paroi sur le schéma, curseur « température dehors », avant / après standard-traité) ; **Teste-toi** (4 exercices par outil) ; **lexique** (28 mots, bouton sur chaque page, mots cliquables dans les Méthodes). |
 | Commun (lot 1 « solide ») | Sauvegarde complète + restauration + rappel, avertissement « un stockage par adresse / appareil », tests Node + vérification GitHub, code d'interface mis en commun dans `BAO`, quantités et longueurs négatives refusées, noms de fichiers sans accents, Méthodes en sections repliables. |
-| Confort d'été et inertie | À faire. Classe d'inertie, déphasage et amortissement des parois (ISO 13786), position de la masse, facteur solaire vitrages + protections, effet du brassage d'air. Émile a fait son travail de fin de BUT sur le confort d'été en STD Pléiades. |
+| Simulateur de confort d'été | **Site à part depuis le 06/11/2026** (choix d'Émile) : projet `simulateur-confort-ete`, https://emilemonteil46600-arch.github.io/simulateur-confort-ete/ (son propre CLAUDE.md). Ici, seulement une carte sur l'accueil qui pointe vers lui. Même origine github.io : les deux sites partagent le localStorage (clés `bao.confort.*` là-bas). Le cahier des charges d'origine reste dans `docs/confort-ete/`. |
 
 **Prochaine étape côté Émile :** remplacer les ratios d'exemple par ses vraies sources (devis, DPGF),
 en commençant par les 5 postes qu'il chiffre le plus souvent.
 
 **Feuille de route proposée (29/10/2026)** — lots 1 « solide », 2 « utile pour les rapports » et 3 « comprendre » faits ;
 **Décision du 02/11/2026 : le Simulateur de confort d'été devient l'outil phare.** Cahier des charges complet :
-`docs/confort-ete/CAHIER-DES-CHARGES.md` (à lire avant tout travail dessus ; construction étape par étape,
-avec une fiche de compréhension et l'accord d'Émile à chaque étape). L'Audit flash est **mis en pause**
+`docs/confort-ete/CAHIER-DES-CHARGES.md` (construction étape par étape, avec une fiche de compréhension et l'accord
+d'Émile à chaque étape). **Depuis le 06/11/2026, il est développé dans son propre projet `simulateur-confort-ete`.** L'Audit flash est **mis en pause**
 (GoRénov couvre déjà le pré-diagnostic). Le chiffrage reste un outil de fond, enrichi par les vrais prix d'Émile.
 
 Avant cette décision, les options étaient : Audit flash (carte d'abord, voir plus bas), Confort d'été, ou :
