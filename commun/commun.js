@@ -23,7 +23,12 @@
     'bao.ponts.projets.v1': 'Ponts thermiques — tes calculs enregistrés',
     'bao.batiment.v1': 'Dossier bâtiment — le bâtiment en cours',
     'bao.batiments.v1': 'Dossier bâtiment — tes bâtiments enregistrés',
-    'bao.energies.v1': 'Dossier bâtiment — tes prix des énergies'
+    'bao.energies.v1': 'Dossier bâtiment — tes prix des énergies',
+    'bao.confort.paroi.v1': 'Confort d\'été — la paroi en cours',
+    'bao.confort.parois.v1': 'Confort d\'été — tes parois enregistrées',
+    'bao.confort.local.v1': 'Confort d\'été — le local (inertie)',
+    'bao.confort.materiaux.v1': 'Confort d\'été — ta bibliothèque de matériaux',
+    'bao.confort.reglages.v1': 'Confort d\'été — tes réglages (onde, seuils…)'
   };
 
   // Date de la dernière modification et du dernier export de chaque clé.

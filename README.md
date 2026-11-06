@@ -10,7 +10,7 @@ Chaque outil montre ses formules, ses hypothèses et ses sources : pas de boîte
 | [Dossier bâtiment](outils/batiment/) | V1 | Climat (DJU, température de base), chauffage, consommations et prix des énergies, partagés par les outils |
 | [Chiffrage des préconisations](outils/chiffrage/) | V1 | Coût des travaux par scénario (ratios personnels actualisés BT01), gains en kWh et en €, temps de retour, fiche Word |
 | [Ponts thermiques ψ](outils/ponts-thermiques/) | V1 | Catalogue de liaisons selon la position de l'isolant (ITI, ITE, ITR), schémas, part des ponts thermiques dans les déperditions, kWh et € par an, risque de condensation et de moisissures |
-| Confort d'été et inertie | à venir | Inertie, déphasage, protections solaires, brassage d'air |
+| [Simulateur de confort d'été](outils/confort-ete/) | étape 1 / 7 | Outil phare en construction ([cahier des charges](docs/confort-ete/CAHIER-DES-CHARGES.md)). Étape 1 : parois couche par couche, U, déphasage, amortissement, admittance, capacité κ (ISO 13786), inertie du local (ISO 13790), validées par différences finies |
 
 Dans chaque outil : un bouton **Lexique** (les mots techniques expliqués simplement) et, en fin d'onglet Méthode,
 des exercices **« Teste-toi »** tirés au hasard et corrigés étape par étape.

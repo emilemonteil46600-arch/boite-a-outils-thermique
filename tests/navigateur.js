@@ -14,7 +14,7 @@ const { chromium } = require('playwright');
 
 const RACINE = path.join(__dirname, '..');
 const url = function (page) { return 'file://' + path.join(RACINE, page); };
-const PAGES = ['index.html', 'outils/batiment/index.html', 'outils/chiffrage/index.html', 'outils/ponts-thermiques/index.html'];
+const PAGES = ['index.html', 'outils/batiment/index.html', 'outils/chiffrage/index.html', 'outils/ponts-thermiques/index.html', 'outils/confort-ete/index.html'];
 const problemes = [];
 const ok = function (condition, message) {
   if (condition) console.log('  ✓ ' + message);
@@ -154,7 +154,32 @@ async function largeurs(page) {
   ok(correction.includes('Pas tout à fait') && correction.includes('Prix actualisé'), 'Mauvaise réponse : la correction s\'affiche étape par étape');
   ok((await page.textContent('#teste-toi [data-score]')).includes('0 / 1'), 'Le score se met à jour');
 
-  console.log('6. Rappel de sauvegarde, sauvegarde complète et restauration');
+  console.log('6. Confort d\'été, étape 1 : les parois');
+  await page.goto(url('outils/confort-ete/index.html'));
+  await page.click('[data-onglet="calcul"]');
+  const resultat = function () { return page.textContent('#resultats').then(function (t) { return t.replace(/\s/g, ' '); }); };
+  ok((await resultat()).includes('0,252') && (await resultat()).includes('7,7'), 'Béton 18 + ITE PSE 14 : U = 0,252, Δt ≈ 7,7 h');
+  ok(await page.$('#schema svg .sch-onde') !== null, 'Coupe de la paroi avec la courbe de l\'onde');
+  ok(await page.$$eval('svg.graphique', function (s) { return s.length; }) === 2, 'Les 2 graphiques de la journée chaude sont dessinés');
+  const k1Avant = (await page.textContent('#resultats')).replace(/\s/g, ' ');
+  await page.click('#btn-retourner');
+  const k1Apres = (await resultat());
+  ok(k1Avant.includes('75,8') && k1Apres.includes('0,252') && !k1Apres.includes('75,8'), 'Retourner la paroi : même U, κ1 change');
+  await page.click('#btn-retourner');
+  await page.fill('#corps-couches tr[data-couche="1"] input[data-champ="e"]', '30');
+  await page.press('#corps-couches tr[data-couche="1"] input[data-champ="e"]', 'Tab');
+  ok((await page.textContent('#detail-couches')).includes('30,0'), 'Épaisseur modifiée : le détail couche par couche suit');
+  ok((await page.textContent('#detail-matrice')).includes('doit valoir 1'), 'Le calcul pas à pas affiche le contrôle du déterminant');
+  ok((await page.textContent('#resultat-local')).includes('Moyenne'), 'Local d\'exemple : classe d\'inertie « Moyenne »');
+  await page.fill('#nom-projet', 'Façade test');
+  await page.click('#btn-enregistrer');
+  ok((await page.textContent('#comparaison')).includes('Façade test'), 'Mes parois : la paroi enregistrée apparaît dans la comparaison');
+  await page.click('[data-onglet="methode"]');
+  const termesConfort = await page.$$eval('#onglet-methode .terme', function (t) { return t.length; });
+  ok(termesConfort >= 10, 'Méthode du confort d\'été : ' + termesConfort + ' mots reliés au lexique');
+  ok(await page.$$eval('#teste-toi .exercice', function (e) { return e.length; }) >= 4, 'Teste-toi du confort d\'été affiché');
+
+  console.log('7. Rappel de sauvegarde, sauvegarde complète et restauration');
   await page.reload();
   ok(await page.$('.rappel-sauvegarde') !== null, 'Rappel affiché : données jamais sauvegardées');
   const [sauvegarde] = await Promise.all([page.waitForEvent('download'), page.click('.rappel-sauvegarde [data-action="sauver"]')]);

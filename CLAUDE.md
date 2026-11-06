@@ -46,6 +46,8 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
                              les autres outils ; ils lisent le bâtiment en cours via BAO.lireBatiment / BAO.lireEnergies.
   outils/<outil>/index.html  page de l'outil
   outils/<outil>/calcul.js   TOUTE la logique de calcul, fonctions pures, commentées en français
+                             (confort d'été : calcul découpé en chapitres calcul-parois.js, calcul-soleil.js…,
+                             et calcul.js = le sommaire ; choix d'Émile du 06/11/2026)
   outils/<outil>/interface.js affichage et événements, AUCUN calcul
   outils/<outil>/schemas.js  (si besoin) dessins SVG, AUCUN calcul
   outils/<outil>/exercices.js exercices « Teste-toi » tirés au hasard ; la bonne réponse vient TOUJOURS de calcul.js
@@ -77,7 +79,9 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
   ses ratios : `bao.chiffrage.biblio.v1`, `bao.chiffrage.projet.v1`, `bao.chiffrage.projets.v1`,
   `bao.bt01.perso.v1`, `bao.chiffrage.onglet`, et pour les ponts thermiques `bao.ponts.biblio.v1`,
   `bao.ponts.projet.v1`, `bao.ponts.projets.v1`, `bao.ponts.onglet`, pour le dossier bâtiment `bao.batiment.v1`,
-  `bao.batiments.v1`, `bao.energies.v1`, `bao.batiment.onglet`. Suivi des sauvegardes : `bao.sauvegarde.v1`.
+  `bao.batiments.v1`, `bao.energies.v1`, `bao.batiment.onglet`, pour le confort d'été `bao.confort.paroi.v1`,
+  `bao.confort.parois.v1`, `bao.confort.local.v1`, `bao.confort.materiaux.v1`, `bao.confort.reglages.v1`,
+  `bao.confort.onglet`. Suivi des sauvegardes : `bao.sauvegarde.v1`.
 - Toute **nouvelle** clé de données d'un outil doit être ajoutée à `BAO.CLES_DONNEES` (`commun/commun.js`),
   sinon elle n'entre pas dans la sauvegarde complète. Le test `tests/commun.test.js` vérifie la liste.
 
@@ -104,6 +108,10 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
      P = 76 × (19 − (−7)) = 1 976 W ; 1 W/K ≈ **6,21 €/an** ; après ITE (39 W/K) ≈ 242 €/an ;
    - condensation (ponts thermiques) : 19 °C, 50 %, −7 °C dehors → point de rosée **8,3 °C**, moisissures sous **11,7 °C**,
      fRsi minimal 0,72 ; plancher ITI (fRsi 0,75) → 12,5 °C ✅ ; acrotère ITI (0,68) → **10,7 °C** 🟠 ; à 60 % → condensation ❌ ;
+   - confort d'été, parois (étape 1) : béton 20 cm seul (Rsi 0,13, Rse 0,04) → U = **3,892**, δ = 0,1658 m, ξ = 1,206,
+     |Y12| = **2,185**, Δt = **5,09 h**, f = 0,56, κ1 ≈ **85,4 kJ/(m²·K)** ; béton 20 + laine 12 : ITE κ1 85 / ITI 14 kJ/(m²·K),
+     même U ≈ 0,27 ; matrices = différences finies à moins de 0,5 % (en pratique < 0,1 %) ; local d'exemple 20 m² →
+     Cm = 4,11 MJ/K, Am = 54,7 m², 205,7 kJ/(m²·K) → classe « Moyenne » ;
    - exercices « Teste-toi » : 40 tirages par exercice, bonne réponse acceptée, réponse fausse refusée.
 2. `node tests/navigateur.js` : pages sans erreur console, pas de défilement horizontal à 390 px (clair et sombre),
    exemples affichés à l'écran, sauvegarde complète et restauration.
@@ -118,7 +126,7 @@ Boîte à outils personnelle d'**Émile**, apprenti ingénieur thermicien en bur
 | Ponts thermiques ψ | **V1 en ligne + lot 2 (kWh/an, €/an, puissance via le dossier bâtiment).** 5 liaisons × ITI/ITE/ITR + variantes traitées (rupteur, retour d'isolant, soubassement, acrotère isolé), 21 ψ d'exemple « esprit Th-Bât » à vérifier, schéma SVG avec flux (`schemas.js`), explication du pourquoi, Σ ψ × L et part dans Σ U×A + Σ ψ×L (saisi), fourchette ± 20 % (H), variantes perso, calculs enregistrés, export Word / CSV / JSON. |
 | Lot 3 « comprendre » | **Condensation** dans les ponts thermiques (fRsi d'exemple par cas, θ paroi, point de rosée Magnus, seuil moisissures 80 % NF EN ISO 13788, verdict ✅/🟠/❌, humidité intérieure dans Données) ; **schéma interactif** (température de la paroi sur le schéma, curseur « température dehors », avant / après standard-traité) ; **Teste-toi** (4 exercices par outil) ; **lexique** (28 mots, bouton sur chaque page, mots cliquables dans les Méthodes). |
 | Commun (lot 1 « solide ») | Sauvegarde complète + restauration + rappel, avertissement « un stockage par adresse / appareil », tests Node + vérification GitHub, code d'interface mis en commun dans `BAO`, quantités et longueurs négatives refusées, noms de fichiers sans accents, Méthodes en sections repliables. |
-| Confort d'été et inertie | À faire. Classe d'inertie, déphasage et amortissement des parois (ISO 13786), position de la masse, facteur solaire vitrages + protections, effet du brassage d'air. Émile a fait son travail de fin de BUT sur le confort d'été en STD Pléiades. |
+| Simulateur de confort d'été | **Étape 1 / 7 faite (06/11/2026, en attente de l'accord d'Émile pour l'étape 2).** `outils/confort-ete/` : 23 matériaux d'exemple (λ, ρ, c), 13 parois d'exemple, paroi couche par couche, U (ISO 6946), masse, δ, matrices de transfert (ISO 13786) → \|Y12\|, f, Δt, Y11, κ1, κ2, coupe SVG avec l'onde dans l'épaisseur, journée chaude sur 24 h (2 graphiques), « Retourner la paroi » (ITI ↔ ITE), parois enregistrées et comparées, inertie du local (Cm, Am, classe ISO 13790 (H)), Méthode écrite comme un cours (Fourier, gradient, équation de la chaleur, dimensions, exemple à la main), 5 exercices, 14 mots de lexique. Validé par différences finies. Fiches : `docs/confort-ete/etape-0.md`, `etape-1.md`. Émile fait relire chaque étape par Gemini. |
 
 **Prochaine étape côté Émile :** remplacer les ratios d'exemple par ses vraies sources (devis, DPGF),
 en commençant par les 5 postes qu'il chiffre le plus souvent.

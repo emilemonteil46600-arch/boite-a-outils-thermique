@@ -12,10 +12,12 @@ charger('donnees/batiment-exemple.js');
 charger('outils/chiffrage/calcul.js');
 charger('outils/ponts-thermiques/calcul.js');
 charger('outils/batiment/calcul.js');
+charger('outils/confort-ete/calcul-parois.js');
 const OUTILS = {
   chiffrage: charger('outils/chiffrage/exercices.js'),
   'ponts thermiques': charger('outils/ponts-thermiques/exercices.js'),
-  'dossier bâtiment': charger('outils/batiment/exercices.js')
+  'dossier bâtiment': charger('outils/batiment/exercices.js'),
+  'confort d\'été': charger('outils/confort-ete/exercices.js')
 };
 
 Object.keys(OUTILS).forEach(function (outil) {
